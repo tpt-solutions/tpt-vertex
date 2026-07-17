@@ -1,0 +1,35 @@
+# Rust
+/target/
+**/target/
+Cargo.lock.bak
+*.pdb
+
+# Node / frontend
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Desktop (Tauri)
+src-tauri/target/
+*.dSYM/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

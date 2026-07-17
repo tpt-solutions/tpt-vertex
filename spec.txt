@@ -1,0 +1,11 @@
+TPT Vertex (Parametric 3D CAD)
+The "Figma for Hardware"
+The world of open-source hardware—ranging from robotics and EVs to prosthetics and space tech—is severely bottlenecked by Computer-Aided Design (CAD) software. The professional space is locked down by SolidWorks and CATIA, which cost thousands of dollars a year and only run on Windows. The primary open-source alternative, FreeCAD, is a heroic community effort, but it suffers from a clunky UI, a steep learning curve, and historical architectural flaws that make real-time collaboration impossible. Hardware engineers are currently forced to work in silos, emailing massive binary files back and forth.
+TPT Vertex is a modern, cross-platform, parametric CAD kernel built for the collaborative era. It functions as "Figma for Hardware," utilizing WebGPU for blazing-fast, native-speed 3D rendering directly in the browser or via a lightweight desktop client. Its defining feature is real-time, multi-user collaboration. Using Conflict-free Replicated Data Types (CRDTs), multiple engineers can work on the same 3D assembly simultaneously. Furthermore, it bakes Git-like version control into the core, allowing teams to branch, merge, and review 3D geometry changes just like software code.
+By providing TPT Vertex under the Apache 2.0 license, we remove the financial and technical barriers to open-source hardware. It allows a mechanical engineer in Berlin and an electrical engineer in Tokyo to collaboratively design a robotic arm in real-time, for free. Vertex will accelerate the pace of physical innovation, creating a vibrant, global commons of 3D designs, parametric models, and manufacturing files that belong to humanity, completely bypassing the gatekeepers of traditional CAD.
+Tech Stack:
+Geometry Kernel: Rust (utilizing libraries like cadquery concepts or building a custom constraint solver for memory-safe, high-performance parametric math).
+Rendering Engine: WebGPU and wgpu (Rust) for hardware-accelerated, cross-platform 3D rendering in the browser and desktop.
+Collaboration Sync: Yjs or custom CRDT implementations over WebSockets for real-time, conflict-free multi-user editing.
+Frontend UI: React Three Fiber (React + Three.js) for a modern, component-based 3D UI.
+Version Control: Integration with Git LFS or a custom binary-diffing engine for tracking 3D geometry changes over time.
