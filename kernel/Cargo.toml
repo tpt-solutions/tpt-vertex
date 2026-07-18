@@ -1,0 +1,28 @@
+[package]
+name = "vertex-kernel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Geometry kernel for TPT Vertex: math primitives, 2D sketching, parametric feature tree, and feature evaluation."
+
+[dependencies]
+wasm-bindgen = { version = "0.2", optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[features]
+default = []
+# Browser/WASM build (flat geometry buffers for WebGPU).
+wasm = ["dep:wasm-bindgen", "dep:console_error_panic_hook"]
+# Native desktop FFI (C ABI surface for Tauri).
+ffi = []
+
+[dev-dependencies]
+
+[lib]
+name = "vertex_kernel"
+path = "src/lib.rs"
+# Build as both a Rust lib (for tests/desktop) and a cdylib (for native FFI).
+crate-type = ["rlib", "cdylib"]

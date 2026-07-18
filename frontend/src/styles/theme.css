@@ -1,0 +1,19 @@
+:root {
+  --bg: #1e1e24;
+  --panel: #26262e;
+  --fg: #e6e6ef;
+  --border: #383842;
+  --accent: #4f9dff;
+  --accent-soft: rgba(79, 157, 255, 0.18);
+  --hover: rgba(255, 255, 255, 0.06);
+}
+
+.app.light {
+  --bg: #f4f5f8;
+  --panel: #ffffff;
+  --fg: #1a1a22;
+  --border: #d8dae0;
+  --accent: #1f6fe0;
+  --accent-soft: rgba(31, 111, 224, 0.14);
+  --hover: rgba(0, 0, 0, 0.05);
+}

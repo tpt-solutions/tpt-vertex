@@ -1,0 +1,17 @@
+{
+  "name": "@tpt-vertex/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT OR Apache-2.0",
+  "description": "TPT Vertex desktop client (Tauri) wrapping the web frontend.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tpt-solutions/vertex.git",
+    "directory": "desktop"
+  },
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  }
+}

@@ -1,0 +1,18 @@
+[package]
+name = "vertex-manufacturing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Manufacturing & interop for TPT Vertex: mesh/geometry export (STL, OBJ, glTF) and bill-of-materials generation."
+
+[dependencies]
+vertex-kernel = { path = "../kernel" }
+
+[dev-dependencies]
+
+[lib]
+name = "vertex_manufacturing"
+path = "src/lib.rs"
