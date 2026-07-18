@@ -3,7 +3,7 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
 use glam::{Mat4, Vec3, Vec4};
-use vertex_kernel::geometry::solid::{Face, Solid};
+use tpt_vertex_kernel::geometry::solid::{Face, Solid};
 
 /// A pick ray in world space.
 #[derive(Debug, Clone, Copy)]
@@ -21,12 +21,7 @@ pub struct PickHit {
 }
 
 /// Build a world-space ray from camera screen coordinates (NDC -1..1).
-pub fn screen_ray(
-    camera_view_proj_inverse: Mat4,
-    ndc_x: f32,
-    ndc_y: f32,
-    eye: Vec3,
-) -> Ray {
+pub fn screen_ray(camera_view_proj_inverse: Mat4, ndc_x: f32, ndc_y: f32, eye: Vec3) -> Ray {
     let near = unproject(camera_view_proj_inverse, ndc_x, ndc_y, 0.0);
     let far = unproject(camera_view_proj_inverse, ndc_x, ndc_y, 1.0);
     let direction = (far - near).normalize();
@@ -62,7 +57,7 @@ fn ray_vs_face(ray: Ray, solid: &Solid, f: &Face, world: Mat4) -> Option<(f32, V
     ray_triangle(ray, a, b, c)
 }
 
-fn transform_point(world: Mat4, v: vertex_kernel::math::Vec3) -> Vec3 {
+fn transform_point(world: Mat4, v: tpt_vertex_kernel::math::Vec3) -> Vec3 {
     let p = world * Vec4::new(v.x as f32, v.y as f32, v.z as f32, 1.0);
     Vec3::new(p.x, p.y, p.z)
 }

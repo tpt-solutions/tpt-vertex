@@ -1,5 +1,5 @@
 [package]
-name = "vertex-kernel"
+name = "tpt-vertex-kernel"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -22,7 +22,13 @@ ffi = []
 [dev-dependencies]
 
 [lib]
-name = "vertex_kernel"
+name = "tpt_vertex_kernel"
 path = "src/lib.rs"
 # Build as both a Rust lib (for tests/desktop) and a cdylib (for native FFI).
 crate-type = ["rlib", "cdylib"]
+
+# Dependency-free benchmark harness (uses std::time). Run with:
+#   cargo bench -p tpt-vertex-kernel
+[[bench]]
+name = "kernel_bench"
+harness = false

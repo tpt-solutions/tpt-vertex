@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use bytemuck::{Pod, Zeroable};
-use vertex_kernel::assembly::Assembly;
+use tpt_vertex_kernel::assembly::Assembly;
 use wgpu::util::DeviceExt;
 
 use crate::camera::Camera;
@@ -55,7 +55,7 @@ struct GpuMesh {
     tri_count: u32,
     line_index: Arc<wgpu::Buffer>,
     line_count: u32,
-    pick_solid: vertex_kernel::geometry::solid::Solid,
+    pick_solid: tpt_vertex_kernel::geometry::solid::Solid,
 }
 
 /// An entry used for CPU-side picking: which scene node this is, the mesh it
@@ -67,7 +67,6 @@ struct PickEntry {
     mesh_index: usize,
     material: MaterialId,
 }
-
 
 /// The renderer owns the device, surface, pipelines, and the current scene's
 /// GPU buffers. It is backend-agnostic; the surface/adapter are created from
@@ -104,7 +103,7 @@ impl Renderer {
         let (device, queue) = adapter
             .request_device(
                 &wgpu::DeviceDescriptor {
-                    label: Some("vertex-renderer device"),
+                    label: Some("tpt-vertex-renderer device"),
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::default(),
                 },
@@ -186,79 +185,77 @@ impl Renderer {
 
         let compilation_options = wgpu::PipelineCompilationOptions::default();
 
-        let shaded_pipeline =
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("shaded pipeline"),
-                layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: "vs_main",
-                    buffers: std::slice::from_ref(&vertex_buffer_layout),
-                    compilation_options: compilation_options.clone(),
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: "fs_main",
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format,
-                        blend: None,
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                    compilation_options: compilation_options.clone(),
-                }),
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    cull_mode: Some(wgpu::Face::Back),
-                    front_face: wgpu::FrontFace::Ccw,
-                    ..Default::default()
-                },
-                depth_stencil: Some(wgpu::DepthStencilState {
-                    format: wgpu::TextureFormat::Depth32Float,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::Less,
-                    stencil: wgpu::StencilState::default(),
-                    bias: wgpu::DepthBiasState::default(),
-                }),
-                multisample: wgpu::MultisampleState::default(),
-                multiview: None,
-            });
+        let shaded_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("shaded pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: std::slice::from_ref(&vertex_buffer_layout),
+                compilation_options: compilation_options.clone(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: compilation_options.clone(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                cull_mode: Some(wgpu::Face::Back),
+                front_face: wgpu::FrontFace::Ccw,
+                ..Default::default()
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        });
 
-        let wireframe_pipeline =
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("wireframe pipeline"),
-                layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: "vs_main",
-                    buffers: &[vertex_buffer_layout],
-                    compilation_options: compilation_options.clone(),
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: "fs_wire",
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format,
-                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                    compilation_options,
-                }),
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::LineList,
-                    cull_mode: None,
-                    front_face: wgpu::FrontFace::Ccw,
-                    ..Default::default()
-                },
-                depth_stencil: Some(wgpu::DepthStencilState {
-                    format: wgpu::TextureFormat::Depth32Float,
-                    depth_write_enabled: false,
-                    depth_compare: wgpu::CompareFunction::Less,
-                    stencil: wgpu::StencilState::default(),
-                    bias: wgpu::DepthBiasState::default(),
-                }),
-                multisample: wgpu::MultisampleState::default(),
-                multiview: None,
-            });
+        let wireframe_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("wireframe pipeline"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[vertex_buffer_layout],
+                compilation_options: compilation_options.clone(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_wire",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options,
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::LineList,
+                cull_mode: None,
+                front_face: wgpu::FrontFace::Ccw,
+                ..Default::default()
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float,
+                depth_write_enabled: false,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+        });
 
         let global_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("global uniforms"),
@@ -334,13 +331,13 @@ impl Renderer {
                 color: material_color(item.material),
                 highlight: [0.0; 4],
             };
-            let buf = self.device.create_buffer_init(
-                &wgpu::util::BufferInitDescriptor {
+            let buf = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("model uniforms"),
                     contents: bytemuck::bytes_of(&model),
                     usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                },
-            );
+                });
             let bg = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("model bind group"),
                 layout: &model_bgl,
@@ -381,17 +378,18 @@ impl Renderer {
         }
         self.highlighted = node_id;
         for (i, entry) in self.pick_list.iter().enumerate() {
-            let amount = if Some(entry.node_id) == node_id { 1.0 } else { 0.0 };
+            let amount = if Some(entry.node_id) == node_id {
+                1.0
+            } else {
+                0.0
+            };
             let model = ModelUniforms {
                 model: entry.world.to_cols_array_2d(),
                 color: material_color(entry.material),
                 highlight: [amount, 0.0, 0.0, 0.0],
             };
-            self.queue.write_buffer(
-                &self.model_buffers[i],
-                0,
-                bytemuck::bytes_of(&model),
-            );
+            self.queue
+                .write_buffer(&self.model_buffers[i], 0, bytemuck::bytes_of(&model));
         }
     }
 
@@ -416,27 +414,27 @@ impl Renderer {
     }
 
     fn upload_mesh(&self, mesh: &Mesh) -> GpuMesh {
-        let vertex = self.device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
+        let vertex = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("mesh vertices"),
                 contents: bytemuck::cast_slice(&mesh.vertices),
                 usage: wgpu::BufferUsages::VERTEX,
-            },
-        );
-        let tri_index = self.device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
+            });
+        let tri_index = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("mesh indices"),
                 contents: bytemuck::cast_slice(&mesh.indices),
                 usage: wgpu::BufferUsages::INDEX,
-            },
-        );
-        let line_index = self.device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
+            });
+        let line_index = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("mesh line indices"),
                 contents: bytemuck::cast_slice(&mesh.line_indices),
                 usage: wgpu::BufferUsages::INDEX,
-            },
-        );
+            });
         let tri_count = mesh.index_count();
         let line_count = mesh.line_indices.len() as u32;
         let pick_solid = mesh.solid();
@@ -483,11 +481,11 @@ impl Renderer {
             }],
         });
 
-        let mut encoder =
-            self.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("frame encoder"),
-                });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("frame encoder"),
+            });
 
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

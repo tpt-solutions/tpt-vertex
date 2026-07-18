@@ -1,5 +1,5 @@
 [package]
-name = "vertex-collab"
+name = "tpt-vertex-collab"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,11 +9,11 @@ homepage.workspace = true
 description = "Real-time collaboration for TPT Vertex via CRDTs over feature trees, with presence and merge semantics."
 
 [dependencies]
-vertex-kernel = { path = "../kernel" }
+tpt-vertex-kernel = { path = "../kernel" }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 
 [lib]
-name = "vertex_collab"
+name = "tpt_vertex_collab"
 path = "src/lib.rs"

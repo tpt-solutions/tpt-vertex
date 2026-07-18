@@ -3,7 +3,7 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
 use bytemuck::{Pod, Zeroable};
-use vertex_kernel::geometry::solid::Solid;
+use tpt_vertex_kernel::geometry::solid::Solid;
 
 /// Per-vertex data uploaded to the GPU (position + normal, interleaved).
 #[repr(C)]
@@ -36,14 +36,14 @@ impl Mesh {
     pub fn solid(&self) -> Solid {
         let mut s = Solid::new();
         for v in &self.vertices {
-            s.vertices.push(vertex_kernel::math::Vec3::new(
+            s.vertices.push(tpt_vertex_kernel::math::Vec3::new(
                 v.position[0] as f64,
                 v.position[1] as f64,
                 v.position[2] as f64,
             ));
         }
         for tri in self.indices.chunks_exact(3) {
-            s.faces.push(vertex_kernel::geometry::solid::Face::new(
+            s.faces.push(tpt_vertex_kernel::geometry::solid::Face::new(
                 tri[0], tri[1], tri[2],
             ));
         }
@@ -101,7 +101,11 @@ pub fn mesh_from_solid(solid: &Solid) -> Mesh {
     }
 }
 
-fn face_normal(a: vertex_kernel::math::Vec3, b: vertex_kernel::math::Vec3, c: vertex_kernel::math::Vec3) -> glam::Vec3 {
+fn face_normal(
+    a: tpt_vertex_kernel::math::Vec3,
+    b: tpt_vertex_kernel::math::Vec3,
+    c: tpt_vertex_kernel::math::Vec3,
+) -> glam::Vec3 {
     let ab = glam::Vec3::new((b.x - a.x) as f32, (b.y - a.y) as f32, (b.z - a.z) as f32);
     let ac = glam::Vec3::new((c.x - a.x) as f32, (c.y - a.y) as f32, (c.z - a.z) as f32);
     ab.cross(ac)
@@ -110,9 +114,9 @@ fn face_normal(a: vertex_kernel::math::Vec3, b: vertex_kernel::math::Vec3, c: ve
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vertex_kernel::geometry::features::extrude;
-    use vertex_kernel::geometry::sketch::Sketch;
-    use vertex_kernel::math::Vec2;
+    use tpt_vertex_kernel::geometry::features::extrude;
+    use tpt_vertex_kernel::geometry::sketch::Sketch;
+    use tpt_vertex_kernel::math::Vec2;
 
     #[test]
     fn mesh_from_box_has_normals() {

@@ -2,7 +2,7 @@
 //!
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 //!
-//! This crate consumes [`vertex_kernel`] geometry and turns it into draw
+//! This crate consumes [`tpt_vertex_kernel`] geometry and turns it into draw
 //! calls on a [`wgpu`] device. The public surface is intentionally small:
 //!
 //! - [`lib::Renderer`] owns the GPU device, surface, swap-chain config, and
@@ -11,9 +11,10 @@
 //!   helpers that the frontend and the renderer core share.
 
 pub mod camera;
+pub mod culling;
+pub mod mesh;
 pub mod picking;
 pub mod renderer;
-pub mod mesh;
 pub mod scene;
 
 #[cfg(all(feature = "web", target_arch = "wasm32"))]

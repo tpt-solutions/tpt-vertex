@@ -33,9 +33,9 @@ Vertex fixes this:
 | -------------------- | ---------------------------------------------------------------- |
 | Geometry Kernel      | Rust — memory-safe, high-performance parametric math & solver    |
 | Rendering Engine     | WebGPU / `wgpu` (Rust)                                           |
-| Collaboration Sync   | Yjs / custom CRDT over WebSockets                                |
+| Collaboration Sync   | Custom Rust CRDT over WebSockets (see ADR-0006)                  |
 | Frontend UI          | React Three Fiber (React + Three.js) + Vite + TypeScript         |
-| Version Control      | Git LFS or custom binary-diff engine                             |
+| Version Control      | Custom manifest + blob engine (see ADR-0005)                    |
 | Desktop Client       | Tauri (Rust core, no Electron bloat)                             |
 
 ## Repository Layout
@@ -44,19 +44,25 @@ This is a monorepo:
 
 ```
 vertex/
-├── kernel/        # Rust geometry kernel (Cargo workspace member)
-├── frontend/      # Web UI (React Three Fiber, Vite, TypeScript)
-├── desktop/       # Tauri desktop client wrapping the web frontend
-├── docs/          # Architecture Decision Records (ADRs) and guides
-├── .github/       # CI workflows, issue & PR templates
-├── LICENSE-MIT    # MIT license
-├── LICENSE-APACHE # Apache-2.0 license
-└── NOTICE         # Attribution (Apache requirement)
+├── kernel/          # Rust geometry kernel (math, sketch, features, solids)
+├── renderer/        # WebGPU/wgpu renderer + culling/LOD helpers
+├── manufacturing/   # Export/import (STL, OBJ, glTF, STEP), BOM, drawings, plugins
+├── versioning/      # Git-like commits/branches/merge over feature manifests
+├── collab/          # CRDT document + sync hub for real-time collaboration
+├── platform/        # Accounts, orgs/teams, projects, sharing, storage backend
+├── frontend/        # Web UI (React Three Fiber, Vite, TypeScript)
+├── desktop/         # Tauri desktop client wrapping the web frontend
+├── docs/            # Documentation, user guide, and ADRs
+├── .github/         # CI workflows, issue & PR templates
+├── LICENSE-MIT      # MIT license
+├── LICENSE-APACHE   # Apache-2.0 license
+└── NOTICE           # Attribution (Apache requirement)
 ```
 
-Each top-level package has its own manifest (`Cargo.toml` / `package.json`) and
-build tooling. The Rust workspace root is `Cargo.toml`; the frontend and desktop
-are excluded from the workspace so they use their own JS toolchains.
+The Rust workspace members are `kernel`, `renderer`, `manufacturing`,
+`versioning`, `collab`, and `platform`. The `frontend` and `desktop` packages are
+excluded from the Cargo workspace so they use their own JS toolchains (`desktop`
+still embeds the kernel crates by path for offline evaluation).
 
 ## Architecture Overview
 
@@ -120,6 +126,14 @@ cd desktop
 npm install
 npm run tauri dev
 ```
+
+## Documentation
+
+Full documentation lives in [`docs/`](docs/README.md): the
+[user guide](docs/user-guide.md), the
+[public API & plugin interface](docs/plugin-api.md),
+[architecture decision records](docs/adr/README.md), and operational notes
+([security](docs/security-review.md), [accessibility](docs/accessibility.md)).
 
 ## Contributing
 

@@ -3,8 +3,8 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
 use glam::Mat4;
-use vertex_kernel::assembly::Assembly;
-use vertex_kernel::math::Transform as KernelTransform;
+use tpt_vertex_kernel::assembly::Assembly;
+use tpt_vertex_kernel::math::Transform as KernelTransform;
 
 /// A node in the scene graph. Each node carries a local transform and
 /// optionally a reference (by index) to a mesh in the scene's mesh list.
@@ -41,10 +41,22 @@ impl Node {
         let r = t.rotation.to_mat3();
         let tr = t.translation;
         Mat4::from_cols_array(&[
-            r.cols[0].x as f32, r.cols[0].y as f32, r.cols[0].z as f32, 0.0,
-            r.cols[1].x as f32, r.cols[1].y as f32, r.cols[1].z as f32, 0.0,
-            r.cols[2].x as f32, r.cols[2].y as f32, r.cols[2].z as f32, 0.0,
-            tr.x as f32, tr.y as f32, tr.z as f32, 1.0,
+            r.cols[0].x as f32,
+            r.cols[0].y as f32,
+            r.cols[0].z as f32,
+            0.0,
+            r.cols[1].x as f32,
+            r.cols[1].y as f32,
+            r.cols[1].z as f32,
+            0.0,
+            r.cols[2].x as f32,
+            r.cols[2].y as f32,
+            r.cols[2].z as f32,
+            0.0,
+            tr.x as f32,
+            tr.y as f32,
+            tr.z as f32,
+            1.0,
         ])
     }
 }
@@ -128,10 +140,10 @@ pub fn scene_from_assembly(asm: &Assembly) -> Scene {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vertex_kernel::assembly::{Assembly, Part};
-    use vertex_kernel::feature_tree::{Feature, FeatureTree};
-    use vertex_kernel::geometry::sketch::Sketch;
-    use vertex_kernel::math::Vec2;
+    use tpt_vertex_kernel::assembly::{Assembly, Part};
+    use tpt_vertex_kernel::feature_tree::{Feature, FeatureTree};
+    use tpt_vertex_kernel::geometry::sketch::Sketch;
+    use tpt_vertex_kernel::math::Vec2;
 
     #[test]
     fn scene_from_assembly_flattens() {
@@ -140,7 +152,13 @@ mod tests {
         s.line(Vec2::ZERO, Vec2::new(1.0, 0.0));
         s.line(Vec2::new(1.0, 0.0), Vec2::new(1.0, 1.0));
         s.line(Vec2::new(1.0, 1.0), Vec2::ZERO);
-        tree.add(Feature::Extrude { sketch: s, height: 1.0 }, None);
+        tree.add(
+            Feature::Extrude {
+                sketch: s,
+                height: 1.0,
+            },
+            None,
+        );
         let mut asm = Assembly::new();
         asm.add_part(Part::new("part", tree));
         let scene = scene_from_assembly(&asm);

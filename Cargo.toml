@@ -6,6 +6,7 @@ members = [
     "manufacturing",
     "versioning",
     "collab",
+    "platform",
 ]
 exclude = [
     "frontend",

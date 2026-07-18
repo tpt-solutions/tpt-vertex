@@ -53,11 +53,7 @@ impl Camera {
     /// Eye position derived from target + spherical coordinates.
     pub fn eye(&self) -> Vec3 {
         let cp = self.pitch.cos();
-        let dir = Vec3::new(
-            cp * self.yaw.sin(),
-            self.pitch.sin(),
-            cp * self.yaw.cos(),
-        );
+        let dir = Vec3::new(cp * self.yaw.sin(), self.pitch.sin(), cp * self.yaw.cos());
         self.target + dir * self.distance
     }
 
@@ -81,12 +77,9 @@ impl Camera {
     /// Projection matrix for the current mode.
     pub fn projection_matrix(&self) -> Mat4 {
         match self.projection {
-            Projection::Perspective => Mat4::perspective_rh(
-                self.fov_y,
-                self.aspect.max(1e-4),
-                self.near,
-                self.far,
-            ),
+            Projection::Perspective => {
+                Mat4::perspective_rh(self.fov_y, self.aspect.max(1e-4), self.near, self.far)
+            }
             Projection::Orthographic => {
                 let h = self.ortho_half_height;
                 let w = h * self.aspect;

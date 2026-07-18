@@ -2,9 +2,9 @@
 //!
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
-use vertex_kernel::feature_tree::{Feature, FeatureTree};
-use vertex_kernel::geometry::sketch::Sketch;
-use vertex_kernel::math::Vec2;
+use tpt_vertex_kernel::feature_tree::{Feature, FeatureTree};
+use tpt_vertex_kernel::geometry::sketch::Sketch;
+use tpt_vertex_kernel::math::Vec2;
 
 fn rect_sketch(x0: f64, y0: f64, x1: f64, y1: f64) -> Sketch {
     let mut s = Sketch::new();
@@ -34,7 +34,7 @@ fn chained_extrude_then_boolean_union() {
     );
     let union = tree.add(
         Feature::Boolean {
-            op: vertex_kernel::feature_tree::BooleanOp::Union,
+            op: tpt_vertex_kernel::feature_tree::BooleanOp::Union,
             a,
             b,
         },
@@ -61,8 +61,8 @@ fn parameter_change_rebuilds_dependent_subgraph() {
     let moved = tree.add(
         Feature::Transform {
             parent: base,
-            translation: vertex_kernel::math::Vec3::new(0.0, 0.0, 0.0),
-            rotation: vertex_kernel::math::Vec3::ZERO,
+            translation: tpt_vertex_kernel::math::Vec3::new(0.0, 0.0, 0.0),
+            rotation: tpt_vertex_kernel::math::Vec3::ZERO,
         },
         Some(base),
     );
@@ -83,10 +83,10 @@ fn parameter_change_rebuilds_dependent_subgraph() {
 #[test]
 fn missing_parent_is_error() {
     let mut tree = FeatureTree::new();
-    let ghost = vertex_kernel::feature_tree::FeatureId(999);
+    let ghost = tpt_vertex_kernel::feature_tree::FeatureId(999);
     tree.add(
         Feature::Boolean {
-            op: vertex_kernel::feature_tree::BooleanOp::Union,
+            op: tpt_vertex_kernel::feature_tree::BooleanOp::Union,
             a: ghost,
             b: ghost,
         },

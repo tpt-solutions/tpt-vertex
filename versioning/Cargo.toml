@@ -1,5 +1,5 @@
 [package]
-name = "vertex-versioning"
+name = "tpt-vertex-versioning"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,12 +9,12 @@ homepage.workspace = true
 description = "Git-like version control for TPT Vertex 3D designs: snapshots, diffing, branching, and merging of parametric feature trees."
 
 [dependencies]
-vertex-kernel = { path = "../kernel" }
+tpt-vertex-kernel = { path = "../kernel" }
 serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.10"
 
 [dev-dependencies]
 
 [lib]
-name = "vertex_versioning"
+name = "tpt_vertex_versioning"
 path = "src/lib.rs"

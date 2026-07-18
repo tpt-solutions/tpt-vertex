@@ -1,10 +1,10 @@
-//! Bill-of-materials generation from [`vertex_kernel::assembly::Assembly`].
+//! Bill-of-materials generation from [`tpt_vertex_kernel::assembly::Assembly`].
 //!
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
 use std::collections::BTreeMap;
 
-use vertex_kernel::assembly::Assembly;
+use tpt_vertex_kernel::assembly::Assembly;
 
 /// A single BOM line item.
 #[derive(Debug, Clone, PartialEq)]
@@ -37,7 +37,10 @@ impl BomReport {
                 e.name, e.material, e.volume_mm3, e.mass_g
             ));
         }
-        s.push_str(&format!("| **Total** | | | **{:.2}** |\n", self.total_mass_g));
+        s.push_str(&format!(
+            "| **Total** | | | **{:.2}** |\n",
+            self.total_mass_g
+        ));
         s
     }
 }

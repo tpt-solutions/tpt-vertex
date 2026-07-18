@@ -6,7 +6,7 @@ use std::error::Error;
 use std::fmt;
 use std::io::{self, Write};
 
-use vertex_kernel::geometry::solid::Solid;
+use tpt_vertex_kernel::geometry::solid::Solid;
 
 /// Errors surfaced by export routines.
 #[derive(Debug)]
@@ -110,7 +110,7 @@ pub fn export_gltf(solid: &Solid) -> Result<(String, Vec<u8>), StlError> {
     }
     let index_byte_length = (solid.faces.len() * 12) as u32;
     // Pad to 4-byte alignment.
-    while bin.len() % 4 != 0 {
+    while !bin.len().is_multiple_of(4) {
         bin.push(0);
     }
 
@@ -140,13 +140,17 @@ pub fn export_gltf(solid: &Solid) -> Result<(String, Vec<u8>), StlError> {
     Ok((json, bin))
 }
 
-fn face_normal(a: vertex_kernel::math::Vec3, b: vertex_kernel::math::Vec3, c: vertex_kernel::math::Vec3) -> vertex_kernel::math::Vec3 {
+fn face_normal(
+    a: tpt_vertex_kernel::math::Vec3,
+    b: tpt_vertex_kernel::math::Vec3,
+    c: tpt_vertex_kernel::math::Vec3,
+) -> tpt_vertex_kernel::math::Vec3 {
     let ab = b - a;
     let ac = c - a;
     let n = ab.cross(ac);
     let len = n.length();
     if len < 1e-12 {
-        vertex_kernel::math::Vec3::ZERO
+        tpt_vertex_kernel::math::Vec3::ZERO
     } else {
         n * (1.0 / len)
     }

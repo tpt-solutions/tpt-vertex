@@ -27,4 +27,6 @@ once accepted — superseded decisions are marked with a new ADR, never rewritte
 | 0002   | Dual MIT OR Apache-2.0 licensing                   | Accepted |
 | 0003   | Monorepo layout (kernel / frontend / desktop)      | Accepted |
 | 0004   | Geometric representation: hybrid B-rep + CSG       | Accepted |
-| 0004   | Geometric representation: hybrid B-rep + CSG       | Accepted |
+| 0005   | Version-control storage: custom engine over Git LFS| Accepted |
+| 0006   | Real-time collaboration: custom CRDT               | Accepted |
+| 0007   | Desktop client: Tauri wrapper                       | Accepted |

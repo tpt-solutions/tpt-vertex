@@ -3,17 +3,23 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 //!
 //! Provides geometry export to manufacturing/file formats (STL binary + ASCII,
-//! Wavefront OBJ, glTF 2.0) driven by the kernel's
-//! [`vertex_kernel::geometry::solid::Solid`], plus bill-of-materials (BOM)
-//! generation from [`vertex_kernel::assembly::Assembly`] and 2D drawing
+//! Wavefront OBJ, glTF 2.0, STEP AP203/214) and STEP import, driven by the
+//! kernel's [`tpt_vertex_kernel::geometry::solid::Solid`], plus bill-of-materials
+//! (BOM) generation from [`tpt_vertex_kernel::assembly::Assembly`] and 2D drawing
 //! (orthographic SVG) generation.
 
 pub mod bom;
 pub mod drawing;
 pub mod export;
+pub mod plugin;
+pub mod step;
 
 pub use bom::{BomEntry, BomReport};
 pub use export::{export_gltf, export_obj, write_stl_ascii, write_stl_binary, StlError};
+pub use plugin::{
+    ExporterPlugin, ImporterPlugin, PluginError, PluginInfo, PluginRegistry, ToolPlugin,
+};
+pub use step::{export_step, import_step};
 
 #[cfg(test)]
 mod tests {
@@ -23,11 +29,11 @@ mod tests {
 
     use std::collections::BTreeMap;
 
-    use vertex_kernel::assembly::{Assembly, Part};
-    use vertex_kernel::feature_tree::{Feature, FeatureTree};
-    use vertex_kernel::geometry::sketch::Sketch;
-    use vertex_kernel::geometry::solid::Solid;
-    use vertex_kernel::math::Vec2;
+    use tpt_vertex_kernel::assembly::{Assembly, Part};
+    use tpt_vertex_kernel::feature_tree::{Feature, FeatureTree};
+    use tpt_vertex_kernel::geometry::sketch::Sketch;
+    use tpt_vertex_kernel::geometry::solid::Solid;
+    use tpt_vertex_kernel::math::Vec2;
 
     fn box_solid() -> Solid {
         let mut s = Sketch::new();
@@ -35,7 +41,13 @@ mod tests {
         s.line(Vec2::new(2.0, 0.0), Vec2::new(2.0, 2.0));
         s.line(Vec2::new(2.0, 2.0), Vec2::ZERO);
         let mut tree = FeatureTree::new();
-        tree.add(Feature::Extrude { sketch: s, height: 3.0 }, None);
+        tree.add(
+            Feature::Extrude {
+                sketch: s,
+                height: 3.0,
+            },
+            None,
+        );
         tree.evaluate().unwrap().final_solid
     }
 
@@ -55,7 +67,10 @@ mod tests {
         write_stl_ascii(&mut buf, &solid).unwrap();
         let text = String::from_utf8(buf).unwrap();
         assert!(text.starts_with("solid vertex"));
-        assert_eq!(text.matches("  facet normal").count(), solid.triangle_count());
+        assert_eq!(
+            text.matches("  facet normal").count(),
+            solid.triangle_count()
+        );
     }
 
     #[test]
@@ -81,7 +96,13 @@ mod tests {
     fn bom_reports_volume_and_mass() {
         let mut tree = FeatureTree::new();
         let s = Sketch::new();
-        tree.add(Feature::Extrude { sketch: s, height: 1.0 }, None);
+        tree.add(
+            Feature::Extrude {
+                sketch: s,
+                height: 1.0,
+            },
+            None,
+        );
         let mut asm = Assembly::new();
         asm.add_part(Part::new("Block", tree));
         let report = bom_simple(&asm);
@@ -98,7 +119,13 @@ mod tests {
     fn bom_markdown_has_header_and_total() {
         let mut tree = FeatureTree::new();
         let s = Sketch::new();
-        tree.add(Feature::Extrude { sketch: s, height: 1.0 }, None);
+        tree.add(
+            Feature::Extrude {
+                sketch: s,
+                height: 1.0,
+            },
+            None,
+        );
         let mut asm = Assembly::new();
         asm.add_part(Part::new("A", tree));
         let md = bom_simple(&asm).to_markdown();
@@ -111,6 +138,9 @@ mod tests {
         let solid = box_solid();
         let svg = drawing_svg(&solid);
         assert!(svg.starts_with("<svg"));
-        assert_eq!(svg.matches("class=\"edge\"").count(), solid.triangle_count() * 3 * 3);
+        assert_eq!(
+            svg.matches("class=\"edge\"").count(),
+            solid.triangle_count() * 3 * 3
+        );
     }
 }

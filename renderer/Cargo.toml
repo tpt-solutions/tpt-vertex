@@ -1,5 +1,5 @@
 [package]
-name = "vertex-renderer"
+name = "tpt-vertex-renderer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,7 +9,7 @@ homepage.workspace = true
 description = "WebGPU (wgpu) rendering engine for TPT Vertex, consuming kernel geometry."
 
 [dependencies]
-vertex-kernel = { path = "../kernel" }
+tpt-vertex-kernel = { path = "../kernel" }
 wgpu = { version = "0.20", features = ["wgsl"] }
 bytemuck = { version = "1.14", features = ["derive"] }
 thiserror = "1.0"
@@ -20,10 +20,10 @@ web-sys = { version = "0.3", features = ["Window", "HtmlCanvasElement"], optiona
 
 [features]
 # Enables the browser (wasm + WebGPU) host glue in `host.rs`.
-web = ["dep:wasm-bindgen", "dep:js-sys", "dep:web-sys", "vertex-kernel/wasm"]
+web = ["dep:wasm-bindgen", "dep:js-sys", "dep:web-sys", "tpt-vertex-kernel/wasm"]
 
 [dev-dependencies]
 
 [lib]
-name = "vertex_renderer"
+name = "tpt_vertex_renderer"
 path = "src/lib.rs"

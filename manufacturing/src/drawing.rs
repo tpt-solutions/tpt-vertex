@@ -3,12 +3,12 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 //!
 //! Produces simple orthographic projections (top/front/side) of a kernel
-//! [`vertex_kernel::geometry::solid::Solid`] as SVG. This is a v1 stand-in for
+//! [`tpt_vertex_kernel::geometry::solid::Solid`] as SVG. This is a v1 stand-in for
 //! full GD&T-aware technical drawings: it projects triangle edges onto each
 //! principal plane and annotates the bounding-box dimensions.
 
-use vertex_kernel::geometry::solid::{Face, Solid};
-use vertex_kernel::math::Vec3;
+use tpt_vertex_kernel::geometry::solid::{Face, Solid};
+use tpt_vertex_kernel::math::Vec3;
 
 /// Which orthographic plane to project onto.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,7 +66,10 @@ pub fn drawing_svg(solid: &Solid) -> String {
                 let (bx, by) = project(pb, plane);
                 edges.push_str(&format!(
                     "<line class=\"edge\" x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\"/>\n",
-                    ox + ax, oy + ay, ox + bx, oy + by
+                    ox + ax,
+                    oy + ay,
+                    ox + bx,
+                    oy + by
                 ));
             }
         }
@@ -75,11 +78,11 @@ pub fn drawing_svg(solid: &Solid) -> String {
         // Dimension annotation using bounding box along the projected axes.
         let (w, h) = projected_extents(solid, plane);
         svg.push_str(&format!(
-            "<text class=\"txt\" x=\"{}\" y=\"{}\">{} x {}</text>\n",
+            "<text class=\"txt\" x=\"{}\" y=\"{}\">{:.1} x {:.1}</text>\n",
             ox + 4.0,
             oy + cell - 4.0,
-            format!("{w:.1}"),
-            format!("{h:.1}")
+            w,
+            h
         ));
     }
 

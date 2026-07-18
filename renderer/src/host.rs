@@ -17,10 +17,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use vertex_kernel::assembly::Assembly;
-use wgpu::SurfaceTarget;
+use tpt_vertex_kernel::assembly::Assembly;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
+use wgpu::SurfaceTarget;
 
 use crate::camera::Camera;
 use crate::renderer::Renderer;
@@ -153,8 +153,7 @@ impl WebRenderer {
         let shared = Rc::new(RefCell::new(Some(self)));
         let on_frame = Rc::new(on_frame);
 
-        let closure: Rc<RefCell<Option<Closure<dyn FnMut()>>>> =
-            Rc::new(RefCell::new(None));
+        let closure: Rc<RefCell<Option<Closure<dyn FnMut()>>>> = Rc::new(RefCell::new(None));
         let closure_cb = closure.clone();
 
         *closure.borrow_mut() = Some(Closure::new(move || {

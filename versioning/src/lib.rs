@@ -18,10 +18,12 @@
 //! committing, checking out, and merging with basic conflict detection.
 
 pub mod diff;
+pub mod manifest;
 pub mod repo;
 
 pub use diff::{Change, Diff};
-pub use repo::{Commit, Conflict, MergeOutcome, Repository, RepoError};
+pub use manifest::manifest_from_tree;
+pub use repo::{Commit, Conflict, MergeOutcome, RepoError, Repository};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -36,18 +38,10 @@ pub struct Blob {
 
 impl Blob {
     /// Build a blob from a kernel solid.
-    pub fn from_solid(solid: &vertex_kernel::geometry::solid::Solid) -> Self {
+    pub fn from_solid(solid: &tpt_vertex_kernel::geometry::solid::Solid) -> Self {
         Blob {
-            vertices: solid
-                .vertices
-                .iter()
-                .map(|v| [v.x, v.y, v.z])
-                .collect(),
-            faces: solid
-                .faces
-                .iter()
-                .map(|f| [f.a, f.b, f.c])
-                .collect(),
+            vertices: solid.vertices.iter().map(|v| [v.x, v.y, v.z]).collect(),
+            faces: solid.faces.iter().map(|f| [f.a, f.b, f.c]).collect(),
         }
     }
 
@@ -104,7 +98,7 @@ impl FeatureManifest {
     }
 }
 
-fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     let mut s = String::with_capacity(bytes.len() * 2);
     for b in bytes {
         s.push_str(&format!("{b:02x}"));
@@ -115,9 +109,9 @@ fn hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vertex_kernel::feature_tree::{Feature, FeatureTree};
-    use vertex_kernel::geometry::sketch::Sketch;
-    use vertex_kernel::math::Vec2;
+    use tpt_vertex_kernel::feature_tree::{Feature, FeatureTree};
+    use tpt_vertex_kernel::geometry::sketch::Sketch;
+    use tpt_vertex_kernel::math::Vec2;
 
     fn sample_tree() -> FeatureTree {
         let mut s = Sketch::new();
@@ -125,7 +119,13 @@ mod tests {
         s.line(Vec2::new(2.0, 0.0), Vec2::new(2.0, 2.0));
         s.line(Vec2::new(2.0, 2.0), Vec2::ZERO);
         let mut tree = FeatureTree::new();
-        tree.add(Feature::Extrude { sketch: s, height: 3.0 }, None);
+        tree.add(
+            Feature::Extrude {
+                sketch: s,
+                height: 3.0,
+            },
+            None,
+        );
         tree
     }
 
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn manifest_changes_with_height() {
-        let mut t1 = sample_tree();
+        let t1 = sample_tree();
         let mut t2 = sample_tree();
         let id = t1.order()[0];
         t2.update(
