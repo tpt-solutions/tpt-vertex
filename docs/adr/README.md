@@ -31,3 +31,4 @@ once accepted — superseded decisions are marked with a new ADR, never rewritte
 | 0006   | Real-time collaboration: custom CRDT               | Accepted |
 | 0007   | Desktop client: Tauri wrapper                       | Accepted |
 | 0008   | Slicing architecture: standalone crate + miter offset | Accepted |
+| 0009   | Simulation scope: linear static FEA + motion, isolated solver | Accepted |

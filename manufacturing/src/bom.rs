@@ -45,25 +45,12 @@ impl BomReport {
     }
 }
 
-/// Approximate densities (g/mm³) for common engineering materials. Kernel units
-/// are treated as millimetres, so density in g/mm³ keeps mass in grams.
-const DENSITIES: &[(&str, f64)] = &[
-    ("Steel", 7.85e-3),
-    ("Aluminum", 2.70e-3),
-    ("Brass", 8.50e-3),
-    ("PLA", 1.24e-3),
-    ("ABS", 1.04e-3),
-    ("Titanium", 4.51e-3),
-];
-
-/// Look up a material density, defaulting to a generic engineering plastic.
+/// Look up a material density (g/mm³) from the kernel's shared material table
+/// (`tpt_vertex_kernel::material::Material::table`), defaulting to a generic
+/// engineering plastic. The kernel table is now the single source of truth for
+/// densities (folded in from the former local density table).
 pub fn density_of(material: &str) -> f64 {
-    for (name, d) in DENSITIES {
-        if name.eq_ignore_ascii_case(material) {
-            return *d;
-        }
-    }
-    1.2e-3
+    tpt_vertex_kernel::material::Material::from_name(material).density
 }
 
 /// Generate a BOM from an assembly. `materials` maps part id -> material name;

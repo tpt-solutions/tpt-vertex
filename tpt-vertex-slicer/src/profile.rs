@@ -131,7 +131,7 @@ impl BodyRole {
     pub fn wall_count(&self, default: usize) -> usize {
         match self {
             BodyRole::Structural => default.max(3),
-            BodyRole::NonStructural => default.min(2).max(1),
+            BodyRole::NonStructural => default.clamp(1, 2),
         }
     }
 

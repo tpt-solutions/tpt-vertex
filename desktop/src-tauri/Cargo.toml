@@ -26,6 +26,7 @@ serde_json = "1"
 tpt-vertex-kernel = { path = "../../tpt-vertex-kernel" }
 tpt-vertex-manufacturing = { path = "../../manufacturing" }
 tpt-vertex-slicer = { path = "../../tpt-vertex-slicer" }
+tpt-vertex-simulation = { path = "../../tpt-vertex-simulation" }
 
 [features]
 # Enable to use the platform WebView; default features chosen by tauri.

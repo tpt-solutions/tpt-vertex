@@ -118,7 +118,7 @@ fn clip_line_to_polygon(
             continue;
         }
         let t = ((p.x - a.x) * ey - (p.y - a.y) * ex) / denom;
-        if t >= -1e-9 && t <= 1.0 + 1e-9 {
+        if (-1e-9..=1.0 + 1e-9).contains(&t) {
             ts.push(t.clamp(0.0, 1.0));
         }
     }

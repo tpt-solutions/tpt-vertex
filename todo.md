@@ -166,21 +166,21 @@ License: dual **MIT OR Apache-2.0**.
 
 ## Phase 10 — 3D Printing / Slicing
 
-- [ ] Scaffold `slicer/` crate (`tpt-vertex-slicer`), add to Cargo workspace members
-- [ ] Define `PrinterProfile`/`SliceSettings` config structs (`slicer/src/profile.rs`)
-- [ ] Implement planar layering: triangle/plane intersection + segment stitching into closed loops (`slicer/src/layers.rs`)
-- [ ] Implement polygon offset/inset for perimeter/wall generation (`slicer/src/offset.rs`)
-- [ ] Implement basic rectilinear/zigzag infill generation (`slicer/src/infill.rs`)
-- [ ] Implement toolpath ordering (perimeters, infill, travel/retraction) (`slicer/src/path.rs`)
-- [ ] Implement G-code emission for a generic configurable FDM printer profile (`slicer/src/gcode.rs`)
-- [ ] Add `MaterialCalibration` profile (flow ratio/temp offset/cooling curve) for per-material/spool tuning
-- [ ] Add structural/non-structural body tagging with per-region wall/infill overrides
-- [ ] Spec/verify highest-risk geometric kernels (plane intersection, contour stitching, polygon offset) via `tpt-telos`
-- [ ] Write unit tests (plane-intersection on cubes/cylinders, offset correctness, infill coverage, G-code smoke tests)
-- [ ] Write crate-level end-to-end slice test
-- [ ] Add desktop Tauri `slice_model` command for local/offline slicing
-- [ ] Build minimal slicer settings + layer-preview panel in frontend (`SlicerPanel.tsx`)
-- [ ] Write ADR: slicing architecture (standalone crate vs. plugin trait; hand-rolled offset vs. external dependency)
+- [x] Scaffold `slicer/` crate (`tpt-vertex-slicer`), add to Cargo workspace members
+- [x] Define `PrinterProfile`/`SliceSettings` config structs (`slicer/src/profile.rs`)
+- [x] Implement planar layering: triangle/plane intersection + segment stitching into closed loops (`slicer/src/layers.rs`)
+- [x] Implement polygon offset/inset for perimeter/wall generation (`slicer/src/offset.rs`)
+- [x] Implement basic rectilinear/zigzag infill generation (`slicer/src/infill.rs`)
+- [x] Implement toolpath ordering (perimeters, infill, travel/retraction) (`slicer/src/path.rs`)
+- [x] Implement G-code emission for a generic configurable FDM printer profile (`slicer/src/gcode.rs`)
+- [x] Add `MaterialCalibration` profile (flow ratio/temp offset/cooling curve) for per-material/spool tuning
+- [x] Add structural/non-structural body tagging with per-region wall/infill overrides
+- [x] Spec/verify highest-risk geometric kernels (plane intersection, contour stitching, polygon offset) via `tpt-telos`
+- [x] Write unit tests (plane-intersection on cubes/cylinders, offset correctness, infill coverage, G-code smoke tests)
+- [x] Write crate-level end-to-end slice test
+- [x] Add desktop Tauri `slice_model` command for local/offline slicing
+- [x] Build minimal slicer settings + layer-preview panel in frontend (`SlicerPanel.tsx`)
+- [x] Write ADR: slicing architecture (standalone crate vs. plugin trait; hand-rolled offset vs. external dependency)
 - [ ] (Fast-follow) Implement support structure generation (basic overhang-triggered supports)
 - [ ] (Fast-follow) Implement tree/organic supports
 - [ ] (Fast-follow) Implement adaptive layer height
@@ -202,29 +202,29 @@ License: dual **MIT OR Apache-2.0**.
 
 ## Phase 11 — Simulation (Static FEA + Assembly Motion)
 
-- [ ] Write ADR: simulation scope and solver dependency decision
-- [ ] Add `Material` struct (density, Young's modulus, Poisson's ratio, yield strength) to kernel; attach to `Part` (`kernel/src/material.rs`, `kernel/src/assembly.rs`)
-- [ ] Fold `manufacturing/src/bom.rs` density table into the new kernel `Material` table
-- [ ] Add DOF-bearing `Mate` variants (`Revolute`, `Slider`, `Cylindrical`) with axis/angle/offset/limits (`kernel/src/assembly.rs`)
-- [ ] Implement real rotation solving in `apply_mate` (fixes existing `AxisAligned` no-op stub)
-- [ ] Scaffold `simulation/` crate (`tpt-vertex-simulation`), add to Cargo workspace members
-- [ ] Implement `validate_watertight` precondition check and tetrahedralization (`simulation/src/mesh.rs`)
-- [ ] Implement isotropic elasticity (stress-strain) matrix from material properties (`simulation/src/material.rs`)
-- [ ] Implement boundary condition representation: fixed constraints, point/surface loads (`simulation/src/bc.rs`)
-- [ ] Implement linear 4-node tetrahedron element stiffness matrix (`simulation/src/element.rs`)
-- [ ] Implement global sparse stiffness assembly + boundary condition application (`simulation/src/assembly.rs`)
-- [ ] Adopt sparse linear solver dependency (recommend `faer`, contained to `simulation/` only) (`simulation/src/solve.rs`)
-- [ ] Implement stress/strain post-processing and von Mises scalar + surface interpolation (`simulation/src/post.rs`)
-- [ ] Implement `Motion`/`MotionPlayer` for time/parameter-driven mate playback (`simulation/src/motion.rs`)
-- [ ] Spec/verify stiffness assembly and boundary-condition application via `tpt-telos`
-- [ ] Write analytical validation tests: cantilever beam deflection vs. Euler-Bernoulli
-- [ ] Write analytical validation tests: axial bar stress/elongation vs. closed form
-- [ ] Write analytical validation tests: plate-with-hole stress concentration vs. Kirsch solution
-- [ ] Write motion validation tests (driven-angle rotation vs. quaternion math)
-- [ ] Add desktop Tauri `run_static_analysis`/`run_motion_frame` commands
-- [ ] Build load/constraint picker UI (`SimulationSetup.tsx`)
-- [ ] Build stress-color-mapped results viewer (reusing existing WebGPU/PBR rendering)
-- [ ] Build motion-study timeline/playback UI (`MotionStudy.tsx`)
+- [x] Write ADR: simulation scope and solver dependency decision
+- [x] Add `Material` struct (density, Young's modulus, Poisson's ratio, yield strength) to kernel; attach to `Part` (`kernel/src/material.rs`, `kernel/src/assembly.rs`)
+- [x] Fold `manufacturing/src/bom.rs` density table into the new kernel `Material` table
+- [x] Add DOF-bearing `Mate` variants (`Revolute`, `Slider`, `Cylindrical`) with axis/angle/offset/limits (`kernel/src/assembly.rs`)
+- [x] Implement real rotation solving in `apply_mate` (fixes existing `AxisAligned` no-op stub)
+- [x] Scaffold `simulation/` crate (`tpt-vertex-simulation`), add to Cargo workspace members
+- [x] Implement `validate_watertight` precondition check and tetrahedralization (`simulation/src/mesh.rs`)
+- [x] Implement isotropic elasticity (stress-strain) matrix from material properties (`simulation/src/material.rs`)
+- [x] Implement boundary condition representation: fixed constraints, point/surface loads (`simulation/src/bc.rs`)
+- [x] Implement linear 4-node tetrahedron element stiffness matrix (`simulation/src/element.rs`)
+- [x] Implement global sparse stiffness assembly + boundary condition application (`simulation/src/assembly.rs`)
+- [x] Adopt sparse linear solver dependency (recommend `faer`, contained to `simulation/` only) (`simulation/src/solve.rs`)
+- [x] Implement stress/strain post-processing and von Mises scalar + surface interpolation (`simulation/src/post.rs`)
+- [x] Implement `Motion`/`MotionPlayer` for time/parameter-driven mate playback (`simulation/src/motion.rs`)
+- [x] Spec/verify stiffness assembly and boundary-condition application via `tpt-telos`
+- [x] Write analytical validation tests: cantilever beam deflection vs. Euler-Bernoulli
+- [x] Write analytical validation tests: axial bar stress/elongation vs. closed form
+- [x] Write analytical validation tests: plate-with-hole stress concentration vs. Kirsch solution
+- [x] Write motion validation tests (driven-angle rotation vs. quaternion math)
+- [x] Add desktop Tauri `run_static_analysis`/`run_motion_frame` commands
+- [x] Build load/constraint picker UI (`SimulationSetup.tsx`)
+- [x] Build stress-color-mapped results viewer (reusing existing WebGPU/PBR rendering)
+- [x] Build motion-study timeline/playback UI (`MotionStudy.tsx`)
 - [ ] (Fast-follow) Nonlinear material models (plasticity, hyperelasticity)
 - [ ] (Fast-follow) Large-deformation/geometric nonlinearity
 - [ ] (Fast-follow) Contact/interference detection during motion
@@ -248,3 +248,26 @@ License: dual **MIT OR Apache-2.0**.
 - [ ] GD&T/tolerance annotations on drawings
 - [ ] Design tables/configurations (same model, multiple parameter sets)
 - [ ] Photorealistic rendering material presets (SolidWorks Visualize-style)
+
+---
+
+## Phase 13 — Printer Connectivity (Network Printing)
+
+- [ ] Write ADR: printer connectivity architecture — unified ESP3D/OctoPrint client, MVP scope (ADR-0010)
+- [ ] Scaffold `tpt-vertex-printer-link` crate, add to Cargo workspace members
+- [ ] Define `PrinterTarget`/`ProtocolKind` connection-config types, distinct from `tpt-vertex-slicer`'s physical `PrinterProfile` (`tpt-vertex-printer-link/src/target.rs`)
+- [ ] Define `PrinterClient` trait, `StatusSnapshot`, `ConnectionInfo`, `PrinterError`, `make_client` factory (`tpt-vertex-printer-link/src/client.rs`)
+- [ ] Implement ESP3D HTTP client — upload + M115/M105/M27 command polling + M23/M24 print start (`tpt-vertex-printer-link/src/esp3d.rs`)
+- [ ] Implement OctoPrint/Moonraker (`octoprint_compat`)-compatible REST client (`tpt-vertex-printer-link/src/octoprint.rs`)
+- [x] Write unit tests for both clients against a mock HTTP server (mockito), covering success/error/malformed-reply paths
+- [ ] Add `tauri-plugin-store` and printer profile persistence (`printers.json` in app config dir)
+- [ ] Add desktop Tauri printer commands: list/save/delete profile, test connection, send G-code, get status (`desktop/src-tauri/src/printer.rs`)
+- [ ] Add frontend Tauri IPC wrapper (`frontend/src/printer/client.ts`) — first real `@tauri-apps/api` usage in the app
+- [ ] Build printer profile management panel (`PrinterPanel.tsx`)
+- [ ] Add "Send to Printer" action + connect/upload/print status feedback to `SlicerPanel.tsx`
+- [ ] Manually verify end-to-end against OctoPrint's built-in Virtual Printer, a real Moonraker instance (`octoprint_compat` enabled), and a real ESP32 dev board flashed with ESP3D firmware
+- [ ] (Fast-follow) mDNS/zeroconf printer auto-discovery
+- [ ] (Fast-follow) Stream G-code to printer layer-by-layer as it's sliced, instead of upload-then-print
+- [ ] (Fast-follow) Native Moonraker client (if `octoprint_compat` coverage proves insufficient)
+- [ ] (Fast-follow) Move printer API keys from plaintext JSON to OS keychain storage
+- [ ] (Fast-follow) Feed printer telemetry/status back into `tpt-vertex-simulation` for closed-loop print-deviation detection

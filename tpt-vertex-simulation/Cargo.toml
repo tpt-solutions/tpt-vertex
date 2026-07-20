@@ -14,6 +14,13 @@ categories = ["science", "algorithms"]
 [dependencies]
 tpt-vertex-kernel = { path = "../tpt-vertex-kernel", version = "0.1.0" }
 
+# NOTE: a sparse direct solver (`faer`) is the recommended long-term dependency
+# for the global solve (see Phase-11 ADR). For v1 the global system is solved
+# with a self-contained dense LU decomposition so the crate stays dependency-free
+# and easy to audit; swapping in `faer` is a contained change inside
+# `src/solve.rs`.
+faer = "0.22"
+
 [dev-dependencies]
 
 [lib]

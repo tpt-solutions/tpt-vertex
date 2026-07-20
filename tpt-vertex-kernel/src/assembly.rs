@@ -10,18 +10,22 @@
 
 use crate::feature_tree::{Evaluation, FeatureTree};
 use crate::geometry::solid::Solid;
-use crate::math::{Transform, Vec3};
+use crate::material::Material;
+use crate::math::{Quaternion, Transform, Vec3};
 
 /// A unique part identifier within an assembly.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PartId(pub u64);
 
-/// A part: a feature tree (its geometry) plus a placement transform.
+/// A part: a feature tree (its geometry), a placement transform, and an optional
+/// engineering material (used by BOM mass and simulation).
 #[derive(Debug, Clone)]
 pub struct Part {
     pub name: String,
     pub tree: FeatureTree,
     pub transform: Transform,
+    /// Optional material; `None` means unspecified (BOM uses a generic default).
+    pub material: Option<Material>,
 }
 
 impl Part {
@@ -30,7 +34,14 @@ impl Part {
             name: name.into(),
             tree,
             transform: Transform::identity(),
+            material: None,
         }
+    }
+
+    /// Builder-style setter for the part material.
+    pub fn with_material(mut self, material: Material) -> Self {
+        self.material = Some(material);
+        self
     }
 
     /// Evaluate the part's solid in its local frame.
@@ -51,6 +62,10 @@ impl Part {
 }
 
 /// A mating constraint between two parts.
+///
+/// The first three variants are positional; the last three are *DOF-bearing*
+/// joints that carry a degree of freedom (angle or offset) which motion studies
+/// drive over time (see `tpt-vertex-simulation`).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mate {
     /// Two parts share a coincident point/plane (their origins coincide).
@@ -59,6 +74,37 @@ pub enum Mate {
     Offset(PartId, PartId, Vec3),
     /// Two parts are aligned along a common axis (parallel Z axes).
     AxisAligned(PartId, PartId),
+    /// Revolute (hinge) joint: `mover` rotates about `axis` (through `anchor`)
+    /// relative to `base` by `angle` radians. One rotational DOF.
+    Revolute {
+        base: PartId,
+        mover: PartId,
+        anchor: Vec3,
+        axis: Vec3,
+        angle: f64,
+        /// Optional `(min, max)` angle limits in radians.
+        limits: Option<(f64, f64)>,
+    },
+    /// Slider (prismatic) joint: `mover` translates along `axis` relative to
+    /// `base` by `offset` (kernel units). One translational DOF.
+    Slider {
+        base: PartId,
+        mover: PartId,
+        axis: Vec3,
+        offset: f64,
+        /// Optional `(min, max)` offset limits.
+        limits: Option<(f64, f64)>,
+    },
+    /// Cylindrical joint: `mover` both rotates about and slides along `axis`
+    /// relative to `base`. Two DOF (`angle`, `offset`).
+    Cylindrical {
+        base: PartId,
+        mover: PartId,
+        anchor: Vec3,
+        axis: Vec3,
+        angle: f64,
+        offset: f64,
+    },
 }
 
 /// An assembly of parts and their mates.
@@ -106,6 +152,37 @@ impl Assembly {
 
     pub fn mates(&self) -> &[Mate] {
         &self.mates
+    }
+
+    /// Set the drive parameter of the DOF-bearing mate attached to `part` (the
+    /// `Revolute`/`Slider`/`Cylindrical` joint whose `mover` is `part`). For a
+    /// `Revolute`/`Cylindrical` joint this is the rotation `angle` (radians);
+    /// for a `Slider`/`Cylindrical` it is the translation `offset`. Used by
+    /// motion studies to scrub a joint through its range. Returns true if a
+    /// matching mate was found and updated.
+    pub fn set_drive(&mut self, part: PartId, value: f64) -> bool {
+        let mut updated = false;
+        for m in &mut self.mates {
+            let is_target = match m {
+                Mate::Revolute { mover, .. } => *mover == part,
+                Mate::Slider { mover, .. } => *mover == part,
+                Mate::Cylindrical { mover, .. } => *mover == part,
+                _ => false,
+            };
+            if is_target {
+                match m {
+                    Mate::Revolute { angle, .. } => *angle = value,
+                    Mate::Slider { offset, .. } => *offset = value,
+                    Mate::Cylindrical { angle, offset, .. } => {
+                        *angle = value;
+                        *offset = value;
+                    }
+                    _ => {}
+                }
+                updated = true;
+            }
+        }
+        updated
     }
 
     /// Solve mates by adjusting each part's placement transform to satisfy its
@@ -158,11 +235,101 @@ impl Assembly {
                     0.0
                 }
             }
-            Mate::AxisAligned(_, _) => {
-                // v1: axis alignment is implied by the shared identity rotation;
-                // no translational correction needed.
+            Mate::AxisAligned(a, b) => {
+                // Align part `b`'s local Z axis onto part `a`'s local Z axis by
+                // applying the smallest rotation between them. This replaces the
+                // former no-op stub with real rotational solving.
+                let ra = self.part(*a).map(|p| p.transform.rotation);
+                let rb = self.part(*b).map(|p| p.transform.rotation);
+                if let (Some(ra), Some(rb)) = (ra, rb) {
+                    let za = ra.rotate_vec(Vec3::Z);
+                    let zb = rb.rotate_vec(Vec3::Z);
+                    let correction = crate::math::quat::rotation_between(zb, za);
+                    let residual = crate::math::quat::angle_between(za, zb);
+                    if let Some(p) = self.part_mut(*b) {
+                        p.transform.rotation = (correction * rb).normalize();
+                    }
+                    residual
+                } else {
+                    0.0
+                }
+            }
+            Mate::Revolute {
+                base,
+                mover,
+                anchor,
+                axis,
+                angle,
+                limits,
+            } => {
+                let ang = clamp_limits(*angle, *limits);
+                self.apply_joint_rotation(*base, *mover, *anchor, *axis, ang);
                 0.0
             }
+            Mate::Slider {
+                base,
+                mover,
+                axis,
+                offset,
+                limits,
+            } => {
+                let off = clamp_limits(*offset, *limits);
+                self.apply_joint_translation(*base, *mover, *axis, off);
+                0.0
+            }
+            Mate::Cylindrical {
+                base,
+                mover,
+                anchor,
+                axis,
+                angle,
+                offset,
+            } => {
+                self.apply_joint_rotation(*base, *mover, *anchor, *axis, *angle);
+                self.apply_joint_translation(*base, *mover, *axis, *offset);
+                0.0
+            }
+        }
+    }
+
+    /// Position `mover` by rotating it `angle` radians about `axis` through
+    /// `anchor`, expressed in `base`'s frame. Sets the mover's transform to the
+    /// composed joint pose (used by both mate solving and motion playback).
+    fn apply_joint_rotation(
+        &mut self,
+        base: PartId,
+        mover: PartId,
+        anchor: Vec3,
+        axis: Vec3,
+        angle: f64,
+    ) {
+        let base_tf = self
+            .part(base)
+            .map(|p| p.transform)
+            .unwrap_or_else(Transform::identity);
+        let world_axis = base_tf.transform_dir(axis).normalize();
+        let world_anchor = base_tf.transform_point(anchor);
+        let q = Quaternion::from_axis_angle(world_axis, angle);
+        // Rotation about an arbitrary point: p' = q*(p - anchor) + anchor.
+        if let Some(p) = self.part_mut(mover) {
+            let new_rot = (q * p.transform.rotation).normalize();
+            let rel = p.transform.translation - world_anchor;
+            let new_tr = q.rotate_vec(rel) + world_anchor;
+            p.transform.rotation = new_rot;
+            p.transform.translation = new_tr;
+        }
+    }
+
+    /// Position `mover` by translating it `offset` along `axis`, expressed in
+    /// `base`'s frame.
+    fn apply_joint_translation(&mut self, base: PartId, mover: PartId, axis: Vec3, offset: f64) {
+        let base_tf = self
+            .part(base)
+            .map(|p| p.transform)
+            .unwrap_or_else(Transform::identity);
+        let world_axis = base_tf.transform_dir(axis).normalize();
+        if let Some(p) = self.part_mut(mover) {
+            p.transform.translation = p.transform.translation + world_axis * offset;
         }
     }
 
@@ -172,6 +339,15 @@ impl Assembly {
             .iter()
             .map(|(_, p)| p.solid_in_assembly().triangle_count())
             .sum()
+    }
+}
+
+/// Clamp a joint DOF value (angle or offset) to optional `(min, max)` limits.
+/// With no limits the value passes through unchanged.
+fn clamp_limits(value: f64, limits: Option<(f64, f64)>) -> f64 {
+    match limits {
+        Some((lo, hi)) if hi >= lo => value.clamp(lo, hi),
+        _ => value,
     }
 }
 

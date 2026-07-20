@@ -98,7 +98,7 @@ pub fn emit_gcode(
                 }
                 Move::Extrude { path, z } => {
                     if let Some(first) = path.points.first() {
-                        if last.map_or(true, |p| p.dist(*first) > 1e-6) {
+                        if last.is_none_or(|p| p.dist(*first) > 1e-6) {
                             text.push_str(&format!(
                                 "G1 X{:.3} Y{:.3} F{:.0}\n",
                                 first.x,

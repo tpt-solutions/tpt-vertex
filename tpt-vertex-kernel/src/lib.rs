@@ -5,6 +5,7 @@
 pub mod assembly;
 pub mod feature_tree;
 pub mod geometry;
+pub mod material;
 pub mod math;
 pub mod tolerance;
 
