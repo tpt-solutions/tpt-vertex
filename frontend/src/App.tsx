@@ -8,6 +8,7 @@ import { StatusBar } from "./components/StatusBar";
 import { SketchEditor } from "./components/SketchEditor";
 import { Onboarding } from "./components/Onboarding";
 import { VersionControl } from "./components/VersionControl";
+import { SlicerPanel } from "./components/SlicerPanel";
 import { useModelStore } from "./state/store";
 import { useSketchStore } from "./state/sketchStore";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
@@ -15,6 +16,7 @@ import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 export function App() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [slicerOpen, setSlicerOpen] = useState(false);
   useKeyboardShortcuts();
   const featureCount = useModelStore((s) => s.features.length);
   const selected = useModelStore((s) => s.selectedFeatureId);
@@ -29,6 +31,7 @@ export function App() {
         onToggleTheme={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
         onOpenSketch={openSketch}
         onOpenHistory={() => setHistoryOpen(true)}
+        onOpenSlicer={() => setSlicerOpen(true)}
       />
       <div className="workspace">
         <aside className="left-rail" aria-label="Model panels">
@@ -45,6 +48,7 @@ export function App() {
       <StatusBar featureCount={featureCount} />
       <SketchEditor />
       {historyOpen && <VersionControl onClose={() => setHistoryOpen(false)} />}
+      {slicerOpen && <SlicerPanel onClose={() => setSlicerOpen(false)} />}
       <Onboarding />
     </div>
   );

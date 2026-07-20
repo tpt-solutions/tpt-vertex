@@ -4,10 +4,12 @@ export function Toolbar({
   onToggleTheme,
   onOpenSketch,
   onOpenHistory,
+  onOpenSlicer,
 }: {
   onToggleTheme: () => void;
   onOpenSketch: () => void;
   onOpenHistory: () => void;
+  onOpenSlicer: () => void;
 }) {
   const undo = useModelStore((s) => s.undo);
   const redo = useModelStore((s) => s.redo);
@@ -27,6 +29,9 @@ export function Toolbar({
         </button>
         <button onClick={onOpenHistory} title="Version control &amp; history">
           History
+        </button>
+        <button onClick={onOpenSlicer} title="Slice for 3D printing">
+          Slice
         </button>
         <button onClick={onToggleTheme} title="Toggle theme">
           Theme
