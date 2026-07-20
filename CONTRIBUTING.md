@@ -46,7 +46,7 @@ terms. New source files should carry an SPDX identifier header:
 
 ## Repository Structure
 
-- `kernel/` — Rust geometry kernel (Cargo workspace member)
+- `tpt-vertex-kernel/` — Rust geometry kernel (Cargo workspace member)
 - `frontend/` — React Three Fiber web UI
 - `desktop/` — Tauri desktop client
 - `docs/` — Architecture Decision Records (ADRs) and guides

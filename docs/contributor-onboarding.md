@@ -10,12 +10,14 @@ TPT Vertex is a monorepo:
 
 | Path             | What it is                                             |
 | ---------------- | ------------------------------------------------------ |
-| `kernel/`        | Rust geometry kernel (math, sketches, features, solids) |
-| `renderer/`      | WebGPU/wgpu renderer + culling/LOD helpers              |
-| `manufacturing/` | Export/import (STL, OBJ, glTF, STEP), BOM, plugins      |
-| `versioning/`    | Git-like commits/branches/merge over feature manifests |
-| `collab/`        | CRDT document + sync hub for real-time collaboration    |
-| `platform/`      | Accounts, orgs/teams, projects, sharing, storage        |
+| `tpt-vertex-kernel/`     | Rust geometry kernel (math, sketches, features, solids) |
+| `renderer/`              | WebGPU/wgpu renderer + culling/LOD helpers              |
+| `manufacturing/`         | Export/import (STL, OBJ, glTF, STEP), BOM, plugins      |
+| `versioning/`            | Git-like commits/branches/merge over feature manifests |
+| `collab/`                | CRDT document + sync hub for real-time collaboration    |
+| `platform/`              | Accounts, orgs/teams, projects, sharing, storage        |
+| `tpt-vertex-slicer/`     | FDM slicing engine (planar layers, infill, G-code)      |
+| `tpt-vertex-simulation/` | Static FEA + assembly motion/kinematics                 |
 | `frontend/`      | React Three Fiber UI (Vite + TypeScript + zustand)      |
 | `desktop/`       | Tauri desktop client                                    |
 | `docs/`          | Documentation and ADRs                                  |

@@ -9,7 +9,7 @@ homepage.workspace = true
 description = "Real-time collaboration for TPT Vertex via CRDTs over feature trees, with presence and merge semantics."
 
 [dependencies]
-tpt-vertex-kernel = { path = "../kernel" }
+tpt-vertex-kernel = { path = "../tpt-vertex-kernel" }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]

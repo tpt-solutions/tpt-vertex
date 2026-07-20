@@ -9,7 +9,7 @@ homepage.workspace = true
 description = "Manufacturing & interop for TPT Vertex: mesh/geometry export (STL, OBJ, glTF, STEP), STEP import, bill-of-materials generation, and a plugin registry for custom formats/tools."
 
 [dependencies]
-tpt-vertex-kernel = { path = "../kernel" }
+tpt-vertex-kernel = { path = "../tpt-vertex-kernel" }
 
 [dev-dependencies]
 

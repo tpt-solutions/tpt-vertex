@@ -14,7 +14,7 @@ governance model.
 
 We use a single Git repository with three top-level packages:
 
-- `kernel/` — a Cargo workspace member (Rust geometry kernel). The root
+- `kernel/` (now `tpt-vertex-kernel/`) — a Cargo workspace member (Rust geometry kernel). The root
   `Cargo.toml` declares the workspace; `frontend/` and `desktop/` are
   `exclude`d so they are not part of the Rust workspace.
 - `frontend/` — Vite + React + TypeScript package (own `package.json`).

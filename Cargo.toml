@@ -1,12 +1,14 @@
 [workspace]
 resolver = "2"
 members = [
-    "kernel",
+    "tpt-vertex-kernel",
     "renderer",
     "manufacturing",
     "versioning",
     "collab",
     "platform",
+    "tpt-vertex-slicer",
+    "tpt-vertex-simulation",
 ]
 exclude = [
     "frontend",

@@ -44,12 +44,14 @@ This is a monorepo:
 
 ```
 vertex/
-├── kernel/          # Rust geometry kernel (math, sketch, features, solids)
-├── renderer/        # WebGPU/wgpu renderer + culling/LOD helpers
-├── manufacturing/   # Export/import (STL, OBJ, glTF, STEP), BOM, drawings, plugins
-├── versioning/      # Git-like commits/branches/merge over feature manifests
-├── collab/          # CRDT document + sync hub for real-time collaboration
-├── platform/        # Accounts, orgs/teams, projects, sharing, storage backend
+├── tpt-vertex-kernel/     # Rust geometry kernel (math, sketch, features, solids)
+├── renderer/              # WebGPU/wgpu renderer + culling/LOD helpers
+├── manufacturing/         # Export/import (STL, OBJ, glTF, STEP), BOM, drawings, plugins
+├── versioning/            # Git-like commits/branches/merge over feature manifests
+├── collab/                # CRDT document + sync hub for real-time collaboration
+├── platform/              # Accounts, orgs/teams, projects, sharing, storage backend
+├── tpt-vertex-slicer/     # FDM slicing engine (planar layers, infill, G-code)
+├── tpt-vertex-simulation/ # Static FEA + assembly motion/kinematics
 ├── frontend/        # Web UI (React Three Fiber, Vite, TypeScript)
 ├── desktop/         # Tauri desktop client wrapping the web frontend
 ├── docs/            # Documentation, user guide, and ADRs
@@ -59,8 +61,9 @@ vertex/
 └── NOTICE           # Attribution (Apache requirement)
 ```
 
-The Rust workspace members are `kernel`, `renderer`, `manufacturing`,
-`versioning`, `collab`, and `platform`. The `frontend` and `desktop` packages are
+The Rust workspace members are `tpt-vertex-kernel`, `renderer`, `manufacturing`,
+`versioning`, `collab`, `platform`, `tpt-vertex-slicer`, and `tpt-vertex-simulation`.
+The `frontend` and `desktop` packages are
 excluded from the Cargo workspace so they use their own JS toolchains (`desktop`
 still embeds the kernel crates by path for offline evaluation).
 

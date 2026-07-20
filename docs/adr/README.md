@@ -30,3 +30,4 @@ once accepted — superseded decisions are marked with a new ADR, never rewritte
 | 0005   | Version-control storage: custom engine over Git LFS| Accepted |
 | 0006   | Real-time collaboration: custom CRDT               | Accepted |
 | 0007   | Desktop client: Tauri wrapper                       | Accepted |
+| 0008   | Slicing architecture: standalone crate + miter offset | Accepted |

@@ -9,7 +9,7 @@ homepage.workspace = true
 description = "WebGPU (wgpu) rendering engine for TPT Vertex, consuming kernel geometry."
 
 [dependencies]
-tpt-vertex-kernel = { path = "../kernel" }
+tpt-vertex-kernel = { path = "../tpt-vertex-kernel" }
 wgpu = { version = "0.20", features = ["wgsl"] }
 bytemuck = { version = "1.14", features = ["derive"] }
 thiserror = "1.0"

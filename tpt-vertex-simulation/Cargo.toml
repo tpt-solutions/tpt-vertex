@@ -1,0 +1,21 @@
+[package]
+name = "tpt-vertex-simulation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Simulation for TPT Vertex: linear-elastic static-stress FEA and assembly motion/kinematics playback over kernel geometry."
+readme = "README.md"
+keywords = ["fea", "simulation", "cad", "mechanical", "kinematics"]
+categories = ["science", "algorithms"]
+
+[dependencies]
+tpt-vertex-kernel = { path = "../tpt-vertex-kernel", version = "0.1.0" }
+
+[dev-dependencies]
+
+[lib]
+name = "tpt_vertex_simulation"
+path = "src/lib.rs"

@@ -7,6 +7,9 @@ authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Geometry kernel for TPT Vertex: math primitives, 2D sketching, parametric feature tree, and feature evaluation."
+readme = "README.md"
+keywords = ["cad", "geometry", "parametric", "brep", "solid-modeling"]
+categories = ["graphics", "algorithms", "mathematics"]
 
 [dependencies]
 wasm-bindgen = { version = "0.2", optional = true }

@@ -7,7 +7,7 @@ on:
       - "v*"
     paths:
       - "desktop/**"
-      - "kernel/**"
+      - "tpt-vertex-kernel/**"
       - "manufacturing/**"
       - ".github/workflows/desktop.yml"
   pull_request:

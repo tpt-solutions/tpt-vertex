@@ -1,0 +1,21 @@
+[package]
+name = "tpt-vertex-slicer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "FDM 3D-printing slicer for TPT Vertex: planar layering, wall/infill generation, and G-code emission over kernel geometry."
+readme = "README.md"
+keywords = ["3d-printing", "slicer", "gcode", "fdm", "cad"]
+categories = ["graphics", "algorithms"]
+
+[dependencies]
+tpt-vertex-kernel = { path = "../tpt-vertex-kernel", version = "0.1.0" }
+
+[dev-dependencies]
+
+[lib]
+name = "tpt_vertex_slicer"
+path = "src/lib.rs"

@@ -918,6 +918,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tpt-vertex-simulation"
+version = "0.1.0"
+dependencies = [
+ "tpt-vertex-kernel",
+]
+
+[[package]]
+name = "tpt-vertex-slicer"
+version = "0.1.0"
+dependencies = [
+ "tpt-vertex-kernel",
+]
+
+[[package]]
 name = "tpt-vertex-versioning"
 version = "0.1.0"
 dependencies = [
