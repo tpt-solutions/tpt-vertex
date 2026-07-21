@@ -135,18 +135,28 @@ pub fn tetrahedralize(solid: &Solid, max_tet_edge: f64) -> Result<VolMesh, Strin
         }
     }
 
-    // Cube -> 5 tetrahedra using the space diagonal (0)-(6).
+    // Cube -> 6 tetrahedra using the Kuhn triangulation along the space
+    // diagonal (0)-(6): one tet per cyclic ordering of the three edges
+    // around that diagonal, so the six tets exactly tile the cube with no
+    // gaps or overlaps (each has volume 1/6 of the cell).
     // Corner layout: 0:(0,0,0) 1:(1,0,0) 2:(1,1,0) 3:(0,1,0)
     //                4:(0,0,1) 5:(1,0,1) 6:(1,1,1) 7:(0,1,1)
+    //
+    // A previous 5-tet list here (using [0,1,2,6],[0,1,5,6],[0,2,3,6],
+    // [0,3,7,6],[0,5,7,6]) omitted the tets covering the region near
+    // corner 4 (replacing [0,7,4,6] and [0,4,5,6] with a single bogus
+    // [0,5,7,6]), leaving a real 1/6-of-cell volume gap per cell — the
+    // meshed solid was missing material, not just a test-tolerance issue.
     let cell = [
         [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1],
     ];
-    let tets_local: [[usize; 4]; 5] = [
+    let tets_local: [[usize; 4]; 6] = [
         [0, 1, 2, 6],
-        [0, 1, 5, 6],
         [0, 2, 3, 6],
         [0, 3, 7, 6],
-        [0, 5, 7, 6],
+        [0, 7, 4, 6],
+        [0, 4, 5, 6],
+        [0, 5, 1, 6],
     ];
 
     let mut tets = Vec::new();

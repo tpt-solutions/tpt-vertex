@@ -83,14 +83,14 @@ pub fn dshape_dlambda() -> [[f64; 4]; N_NODES] {
 /// - Mid-edge (i,j): dN_ij / dl_i = 4l_j, dN_ij / dl_j = 4l_i, dN_ij / dl_k = 0 (k≠i,j)
 #[allow(clippy::needless_range_loop)]
 pub fn jacobian(nodes: &[[f64; 3]; N_NODES], l: [f64; 4]) -> [[f64; 3]; 3] {
-    // dN/dl for each node at this integration point.
-    let dndl = dndl_at(l);
+    // dN/dξ for each node at this integration point (independent coords).
+    let dndxi = dndxi_at(l);
 
     let mut j = [[0.0; 3]; 3];
     for k in 0..N_NODES {
         for i in 0..3 {
             for j_col in 0..3 {
-                j[i][j_col] += dndl[k][i] * nodes[k][j_col];
+                j[i][j_col] += dndxi[k][i] * nodes[k][j_col];
             }
         }
     }
@@ -120,6 +120,32 @@ fn dndl_at(l: [f64; 4]) -> [[f64; 4]; N_NODES] {
     // N_9 = 4 l2 l3: d/dl2=4l3, d/dl3=4l2
     dndl[9][2] = 4.0 * l[3]; dndl[9][3] = 4.0 * l[2];
     dndl
+}
+
+/// Derivatives w.r.t. the 3 independent natural coordinates `(ξ, η, ζ) =
+/// (l1, l2, l3)`, with `l0 = 1 - l1 - l2 - l3` treated as dependent (node 0
+/// sits at the parametric origin, matching the physical placement of corner
+/// node 0 at the reference tet's origin and nodes 1/2/3 along the axes).
+///
+/// By the chain rule, `dN/dξ_a = dN/dl_{a+1} - dN/dl_0` for `a` in `0..3`
+/// (since `∂l0/∂ξ_a = -1`). The raw barycentric derivatives from
+/// [`dndl_at`] are *not* directly usable as physical gradients on their
+/// own — dropping a column outright (as opposed to subtracting it) silently
+/// zeroes out the contribution of any node whose only nonzero raw
+/// derivative is w.r.t. the dropped coordinate, corrupting the Jacobian and
+/// the strain-displacement matrix for every node. Dropping `l0` (rather
+/// than `l3`) is also what keeps `det(J)` positive for this node ordering:
+/// `x(l) = l1*p1 + l2*p2 + l3*p3 + l0*p0` reduces to the identity mapping
+/// `(x, y, z) = (l1, l2, l3)` on the reference element.
+fn dndxi_at(l: [f64; 4]) -> [[f64; 3]; N_NODES] {
+    let dndl = dndl_at(l);
+    let mut out = [[0.0; 3]; N_NODES];
+    for k in 0..N_NODES {
+        for a in 0..3 {
+            out[k][a] = dndl[k][a + 1] - dndl[k][0];
+        }
+    }
+    out
 }
 
 /// Invert a 3×3 matrix. Returns zero matrix if singular.
@@ -157,17 +183,17 @@ fn invert3(m: &[[f64; 3]; 3]) -> [[f64; 3]; 3] {
 /// Voigt strain at the integration point: `ε = B u_e`.
 #[allow(clippy::needless_range_loop)]
 pub fn b_matrix(nodes: &[[f64; 3]; N_NODES], l: [f64; 4]) -> [[f64; N_DOFS]; N_STRAIN] {
-    let dndl = dndl_at(l);
+    let dndxi = dndxi_at(l);
     let j = jacobian(nodes, l);
     let jinv = invert3(&j);
 
-    // dN/dx = dN/dl * J^{-1}
+    // dN/dx = dN/dξ * J^{-1}
     let mut dndx = [[0.0; 3]; N_NODES];
     for k in 0..N_NODES {
         for j_col in 0..3 {
             let mut s = 0.0;
             for l_idx in 0..3 {
-                s += dndl[k][l_idx] * jinv[l_idx][j_col];
+                s += dndxi[k][l_idx] * jinv[l_idx][j_col];
             }
             dndx[k][j_col] = s;
         }

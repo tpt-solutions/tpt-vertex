@@ -26,13 +26,21 @@ impl Aabb {
         solid.bounds().map(|(min, max)| Aabb { min, max })
     }
 
+    /// True when the two boxes share positive volume, not merely a touching
+    /// boundary. Two boxes that meet exactly at a face (zero-width contact,
+    /// e.g. two mating parts) have zero overlap volume and are *not*
+    /// considered interfering — this is the common, legitimate "touching"
+    /// assembly case, not a clash. Using `<=`/`>=` here would also flag that
+    /// as an overlap and send it into the narrow phase, where two exactly
+    /// coincident boundary faces register as a full-area triangle
+    /// intersection even though the solids don't actually interpenetrate.
     pub fn overlaps(&self, other: &Aabb) -> bool {
-        self.min.x <= other.max.x
-            && self.max.x >= other.min.x
-            && self.min.y <= other.max.y
-            && self.max.y >= other.min.y
-            && self.min.z <= other.max.z
-            && self.max.z >= other.min.z
+        self.min.x < other.max.x
+            && self.max.x > other.min.x
+            && self.min.y < other.max.y
+            && self.max.y > other.min.y
+            && self.min.z < other.max.z
+            && self.max.z > other.min.z
     }
 
     /// Gap (0 if overlapping) between two boxes along the separating axes.

@@ -14,12 +14,15 @@ categories = ["science", "algorithms"]
 [dependencies]
 tpt-vertex-kernel = { path = "../tpt-vertex-kernel", version = "0.1.0" }
 
-# NOTE: a sparse direct solver (`faer`) is the recommended long-term dependency
-# for the global solve (see Phase-11 ADR). For v1 the global system is solved
-# with a self-contained dense LU decomposition so the crate stays dependency-free
-# and easy to audit; swapping in `faer` is a contained change inside
-# `src/solve.rs`.
-faer = "0.22"
+# Sparse direct solver — optional because it pulls in rayon/crossbeam which
+# are incompatible with wasm32-unknown-unknown. The dense LU solver in
+# solve.rs is always available and is the default for WASM builds.
+faer = { version = "0.22", optional = true }
+
+[features]
+default = ["faer"]
+# Browser/WASM build: excludes faer (and its rayon/crossbeam deps).
+wasm = []
 
 [dev-dependencies]
 

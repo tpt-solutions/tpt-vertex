@@ -306,9 +306,10 @@ pub fn adaptive_refine(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::material::elastic_matrix;
 
     fn cube() -> VolMesh {
-        let mut nodes = vec![
+        let nodes = vec![
             [-1.0, -1.0, -1.0], [1.0, -1.0, -1.0], [1.0, 1.0, -1.0], [-1.0, 1.0, -1.0],
             [-1.0, -1.0, 1.0], [1.0, -1.0, 1.0], [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0],
         ];

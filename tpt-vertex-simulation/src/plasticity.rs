@@ -151,7 +151,13 @@ pub fn radial_return(
         let sy_next = hardening.yield_stress(sigma_y0, eps_p + dep);
         let h = hardening.tangent_modulus(sigma_y0, eps_p + dep);
         let residual = sigma_eq - 3.0 * g * dep - sy_next;
-        let tangent = -3.0 * g - h;
+        // Newton update is dep_new = dep - R/R' where R'(dep) = -(3G + H).
+        // Using `tangent = 3G + H` (the negation) lets us add residual/tangent
+        // directly; the previous `-3G - H` with `dep += residual/tangent`
+        // applied the update with the wrong sign, driving Δε_p negative and
+        // pushing the corrected stress further from (rather than onto) the
+        // yield surface.
+        let tangent = 3.0 * g + h;
         if tangent.abs() < 1e-18 {
             break;
         }

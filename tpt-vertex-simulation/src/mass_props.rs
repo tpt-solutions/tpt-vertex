@@ -138,7 +138,8 @@ mod tests {
             v(-h, -h, -h), v(h, -h, -h), v(h, h, -h), v(-h, h, -h),
             v(-h, -h, h), v(h, -h, h), v(h, h, h), v(-h, h, h),
         ];
-        let mut f = |a: u32, b: u32, c: u32| s.faces.push(Face::new(a, b, c));
+        // Wound so each face's normal (right-hand rule) points outward.
+        let mut f = |a: u32, b: u32, c: u32| s.faces.push(Face::new(a, c, b));
         f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
         f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
         f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);

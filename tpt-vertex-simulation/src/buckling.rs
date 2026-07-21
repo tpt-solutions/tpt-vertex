@@ -52,8 +52,12 @@ pub fn geometric_stiffness(nodes: &[[f64; 3]; 4], sigma: [f64; 6]) -> [[f64; 12]
     // shape-function gradients arranged for the rotation operator and σ̂ is the
     // 3×3 stress tensor.
     //
-    // For each node pair (i,j), the 3×3 block of K_geo is:
-    //   K_geo_{ij} = V * (σ̂ · g_i) · g_jᵀ  (simplified constant-stress form)
+    // For each node pair (i,j), the 3×3 block of K_geo is the scalar
+    // bilinear form `g_iᵀ σ̂ g_j` times the 3×3 identity — *not* the outer
+    // product `(σ̂ · g_i) g_jᵀ`. The outer-product form is asymmetric under
+    // swapping (i,a)<->(j,b) in general (only its trace equals the correct
+    // scalar), which breaks the physically-required symmetry of K_geo.
+    //   K_geo_{ij} = V * (g_iᵀ σ̂ g_j) * I_3
     let sx = sigma[0];
     let sy = sigma[1];
     let sz = sigma[2];
@@ -67,16 +71,20 @@ pub fn geometric_stiffness(nodes: &[[f64; 3]; 4], sigma: [f64; 6]) -> [[f64; 12]
     let mut k_geo = [[0.0; 12]; 12];
     for i in 0..4 {
         for j in 0..4 {
-            // K_geo block (3×3) for node pair (i, j).
+            // Scalar bilinear form g_iᵀ σ̂ g_j, applied to the 3×3 identity
+            // block for node pair (i, j) so K_geo is symmetric.
+            let mut s_gj = [0.0; 3];
             for a in 0..3 {
-                for b in 0..3 {
-                    // (σ · g_i)_a * g_j_b
-                    let mut s_dot_gi = 0.0;
-                    for c in 0..3 {
-                        s_dot_gi += s[a][c] * g[i][c];
-                    }
-                    k_geo[i * 3 + a][j * 3 + b] += vol * s_dot_gi * g[j][b];
+                for c in 0..3 {
+                    s_gj[a] += s[a][c] * g[j][c];
                 }
+            }
+            let mut scalar = 0.0;
+            for a in 0..3 {
+                scalar += g[i][a] * s_gj[a];
+            }
+            for a in 0..3 {
+                k_geo[i * 3 + a][j * 3 + a] += vol * scalar;
             }
         }
     }
