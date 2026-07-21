@@ -1,0 +1,30 @@
+[package]
+name = "tpt-vertex-printer-link"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Network printer connectivity for TPT Vertex: a unified ESP3D/OctoPrint (+ Moonraker compat) client for uploading and controlling FDM printers over the LAN."
+readme = "README.md"
+keywords = ["3d-printing", "printer", "octoprint", "esp3d", "gcode"]
+categories = ["hardware-support", "network-programming"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# HTTP transport. `default-features = false` keeps the crate free of a TLS
+# backend so it builds and links quickly; LAN printer endpoints are almost
+# always plain HTTP. Enable the `tls` feature for HTTPS printers.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "multipart"] }
+
+[features]
+# Pull in a rustls TLS backend so the client can talk to HTTPS printer fronts.
+tls = ["reqwest/rustls-tls"]
+
+[dev-dependencies]
+
+[lib]
+name = "tpt_vertex_printer_link"
+path = "src/lib.rs"

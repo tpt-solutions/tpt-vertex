@@ -25,6 +25,7 @@
     "three": "^0.169.0",
     "@react-three/fiber": "^8.17.10",
     "@react-three/drei": "^9.114.3",
+    "@tauri-apps/api": "^2.0.0",
     "zustand": "^4.5.5"
   },
   "devDependencies": {

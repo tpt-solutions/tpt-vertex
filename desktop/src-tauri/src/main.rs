@@ -15,6 +15,8 @@
 
 use serde::{Deserialize, Serialize};
 
+mod printer;
+
 use tpt_vertex_kernel::feature_tree::{Feature, FeatureTree};
 use tpt_vertex_kernel::geometry::sketch::Sketch;
 use tpt_vertex_kernel::geometry::solid::Solid;
@@ -396,12 +398,19 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             evaluate_model,
             export_step_text,
             slice_model,
             run_static_analysis,
-            run_motion_frame
+            run_motion_frame,
+            printer::list_printers,
+            printer::save_printer,
+            printer::delete_printer,
+            printer::test_printer,
+            printer::send_to_printer,
+            printer::printer_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running TPT Vertex desktop");

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useModelStore } from "../state/store";
 import {
   sliceModel,
@@ -6,6 +6,11 @@ import {
   type SliceSettings,
   type SliceResult,
 } from "../geometry/slicer";
+import {
+  listPrinters,
+  sendToPrinter,
+  type PrinterTarget,
+} from "../printer/client";
 
 /**
  * Minimal slicer settings + layer-preview panel (Phase 10). Reads the current
@@ -17,6 +22,10 @@ export function SlicerPanel({ onClose }: { onClose: () => void }) {
   const [settings, setSettings] = useState<SliceSettings>(DEFAULT_SLICE_SETTINGS);
   const [result, setResult] = useState<SliceResult | null>(null);
   const [layerIndex, setLayerIndex] = useState(0);
+  const [printers, setPrinters] = useState<PrinterTarget[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState("");
+  const [sendStatus, setSendStatus] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const update = <K extends keyof SliceSettings>(key: K, value: SliceSettings[K]) =>
     setSettings((s) => ({ ...s, [key]: value }));
@@ -26,6 +35,32 @@ export function SlicerPanel({ onClose }: { onClose: () => void }) {
     setResult(r);
     setLayerIndex(0);
   };
+
+  const refreshPrinters = () => {
+    listPrinters()
+      .then((list) => {
+        setPrinters(list);
+        if (list.length && !selectedPrinter) setSelectedPrinter(list[0].id);
+      })
+      .catch(() => setPrinters([]));
+  };
+
+  const onSend = async () => {
+    if (!result || !selectedPrinter) return;
+    const target = printers.find((p) => p.id === selectedPrinter);
+    if (!target) return;
+    setSendError(null);
+    setSendStatus(null);
+    try {
+      const s = await sendToPrinter(target, "tpt-vertex.gcode", result.gcode);
+      const pct = s.progress ? ` · ${Math.round(s.progress.completion * 100)}%` : "";
+      setSendStatus(`State: ${s.state}${pct}`);
+    } catch (e) {
+      setSendError(String(e));
+    }
+  };
+
+  useEffect(refreshPrinters, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const layer = result?.layers[Math.min(layerIndex, result.layers.length - 1)];
 
@@ -216,6 +251,34 @@ export function SlicerPanel({ onClose }: { onClose: () => void }) {
             <button className="primary" disabled={!result} onClick={downloadGcode}>
               Download G-code
             </button>
+            <h2 className="panel-title">Send to printer</h2>
+            {printers.length === 0 ? (
+              <p className="muted">No printers. Add one in the Printers panel.</p>
+            ) : (
+              <label>
+                Printer
+                <select
+                  value={selectedPrinter}
+                  onChange={(e) => setSelectedPrinter(e.target.value)}
+                  aria-label="Target printer"
+                >
+                  {printers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button
+              className="primary"
+              disabled={!result || printers.length === 0}
+              onClick={onSend}
+            >
+              Send to Printer
+            </button>
+            {sendStatus && <p className="mono">{sendStatus}</p>}
+            {sendError && <p className="error">{sendError}</p>}
           </section>
         </div>
       </div>

@@ -9,6 +9,7 @@ members = [
     "platform",
     "tpt-vertex-slicer",
     "tpt-vertex-simulation",
+    "tpt-vertex-printer-link",
 ]
 exclude = [
     "frontend",
