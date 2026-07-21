@@ -32,3 +32,5 @@ once accepted — superseded decisions are marked with a new ADR, never rewritte
 | 0007   | Desktop client: Tauri wrapper                       | Accepted |
 | 0008   | Slicing architecture: standalone crate + miter offset | Accepted |
 | 0009   | Simulation scope: linear static FEA + motion, isolated solver | Accepted |
+| 0010   | Printer connectivity: unified ESP3D/OctoPrint client | Accepted |
+| 0011   | Polygon-offset library evaluation (Phase 10 fast-follow) | Accepted |

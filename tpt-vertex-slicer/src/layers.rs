@@ -122,6 +122,33 @@ pub fn slice_solid(
     layers
 }
 
+/// Slice a solid at an explicit, caller-supplied sequence of Z heights (top of
+/// each layer), rather than a fixed `layer_height` step. Used by adaptive
+/// layer-height slicing, where the step between layers varies with local
+/// surface slope. Layers whose plane does not cross the mesh are omitted.
+pub fn slice_solid_at_zs(solid: &Solid, zs: &[f64]) -> Vec<Layer> {
+    let tris: Vec<[Vec3; 3]> = solid
+        .faces
+        .iter()
+        .map(|f| {
+            [
+                solid.vertices[f.a as usize],
+                solid.vertices[f.b as usize],
+                solid.vertices[f.c as usize],
+            ]
+        })
+        .collect();
+
+    let mut layers = Vec::with_capacity(zs.len());
+    for &z in zs {
+        let contours = slice_at_z(&tris, z);
+        if !contours.is_empty() {
+            layers.push(Layer { z, contours });
+        }
+    }
+    layers
+}
+
 /// Intersect all triangles with the horizontal plane `z` and stitch segments into
 /// closed contours. Segments are matched greedily by endpoint proximity.
 pub fn slice_at_z(tris: &[[Vec3; 3]], z: f64) -> Vec<Contour> {

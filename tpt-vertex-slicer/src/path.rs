@@ -14,6 +14,30 @@ pub struct ExtrusionPath {
     pub points: Vec<P2>,
     /// True if the path is a closed loop (perimeter/wall).
     pub closed: bool,
+    /// Extrusion width override in millimetres; `None` uses the printer's
+    /// default nozzle-derived width. Set for variable-width thin-wall fill
+    /// and support pillars sized to a non-default footprint.
+    pub width: Option<f64>,
+    /// True when this path bridges an unsupported gap and should use
+    /// bridge-specific print speed and full cooling.
+    pub is_bridge: bool,
+    /// Index of the extruder/tool that should print this path (multi-material
+    /// / multi-extruder toolpaths); `0` is the default single-extruder case.
+    pub tool: usize,
+}
+
+impl ExtrusionPath {
+    /// Construct a path with all non-geometric fields at their defaults
+    /// (nozzle-default width, not a bridge, tool 0).
+    pub fn new(points: Vec<P2>, closed: bool) -> Self {
+        ExtrusionPath {
+            points,
+            closed,
+            width: None,
+            is_bridge: false,
+            tool: 0,
+        }
+    }
 }
 
 /// A movement command emitted by the planner. Travel moves (no extrusion) carry
@@ -81,10 +105,10 @@ impl LayerPlan {
 pub fn plan_layer(z: f64, perimeters: Vec<ExtrusionPath>, infill: Vec<InfillLine>) -> LayerPlan {
     let mut paths: Vec<ExtrusionPath> = perimeters;
     for line in infill {
-        paths.push(ExtrusionPath {
-            points: vec![line.a, line.b],
-            closed: false,
-        });
+        let mut path = ExtrusionPath::new(vec![line.a, line.b], false);
+        path.is_bridge = line.is_bridge;
+        path.tool = line.tool;
+        paths.push(path);
     }
 
     let mut moves = Vec::new();
@@ -141,10 +165,7 @@ mod tests {
                 P2::new(0.0, 10.0),
             ],
         };
-        ExtrusionPath {
-            points: c.points.clone(),
-            closed: true,
-        }
+        ExtrusionPath::new(c.points.clone(), true)
     }
 
     #[test]
@@ -153,8 +174,8 @@ mod tests {
             0.2,
             vec![loop_rect()],
             vec![
-                InfillLine { a: P2::new(1.0, 1.0), b: P2::new(9.0, 1.0) },
-                InfillLine { a: P2::new(1.0, 3.0), b: P2::new(9.0, 3.0) },
+                InfillLine::new(P2::new(1.0, 1.0), P2::new(9.0, 1.0)),
+                InfillLine::new(P2::new(1.0, 3.0), P2::new(9.0, 3.0)),
             ],
         );
         assert!(plan.printed_length() > 0.0);

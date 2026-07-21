@@ -88,9 +88,7 @@ License: dual **MIT OR Apache-2.0**.
 - [x] Implement presence indicators (multi-user cursors, active selections) (`collab/src/presence.rs`)
 - [x] Implement conflict resolution UX (visual cues for concurrent edits) (CRDT converges automatically; version-control merge UI provides explicit resolution)
 - [x] Implement offline editing support with reconnection/resync (`SyncHub` `Resync`/snapshot; CRDT ops merge regardless of order — tested)
-- [x] Implement authentication/session handling for collaborative rooms (`Authenticator`/`MemoryAuth`, `Join` token auth)
-- [x] Implement access control for shared documents (view/edit permissions) (viewer/editor/owner enforced server-side)
-- [ ] Load-test sync server with multiple concurrent simulated users (requires infra; deferred to Phase 9)
+- [ ] Load-test sync server with multiple concurrent simulated users (requires infra; deferred to Phase 8)
 - [x] Write integration tests for CRDT merge correctness (convergence, idempotency, order-independence, concurrent add/remove)
 
 ---
@@ -138,23 +136,11 @@ License: dual **MIT OR Apache-2.0**.
 
 ---
 
-## Phase 8 — Platform, Auth & Multi-tenancy
-
-- [x] Implement user account system (sign up/login/profile) (`platform/src/auth.rs`, `Platform::sign_up`/`log_in`)
-- [x] Implement organizations/teams and membership management (`platform/src/org.rs`)
-- [x] Implement project/workspace management (create, share, archive) (`platform/src/project.rs`)
-- [x] Implement sharing and permission levels (owner/editor/viewer) (`Permission`, `effective_permission` combining user/team/org grants)
-- [x] Implement storage backend for projects/assets (`platform/src/storage.rs` — `Store`/`BlobStore` traits + `MemoryStore` reference impl)
-- [ ] Design monetization/plan tiers if applicable (TBD — not specified in spec)
-- [ ] Implement usage/quota tracking if plan tiers are adopted (blocked on monetization decision)
-
----
-
-## Phase 9 — Testing, Hardening & Launch
+## Phase 8 — Testing, Hardening & Launch
 
 - [x] Build end-to-end test suite covering full design + collaboration workflows (`frontend/src/test/e2e.test.tsx`: edit/undo/redo, commit/branch/diverge/merge-with-conflict; collab convergence covered in `collab` tests)
 - [ ] Load-test collaboration sync at scale (many concurrent rooms/users) (requires infra; harness design noted in security review)
-- [x] Conduct security review (auth, WebSocket sync, file handling) (`docs/security-review.md`)
+- [x] Conduct security review (WebSocket sync, file handling) (`docs/security-review.md`)
 - [x] Conduct accessibility pass on frontend UI (`docs/accessibility.md`; landmarks, skip link, listbox keyboard nav, focus-visible, aria-live)
 - [x] Build documentation site (user guide + API/plugin docs) (`docs/` structured for static-site generation: `docs/README.md`, user guide, plugin API)
 - [x] Prepare public open-source launch checklist (release notes, versioning policy) (`docs/launch-checklist.md`)
@@ -164,7 +150,7 @@ License: dual **MIT OR Apache-2.0**.
 
 ---
 
-## Phase 10 — 3D Printing / Slicing
+## Phase 9 — 3D Printing / Slicing
 
 - [x] Scaffold `slicer/` crate (`tpt-vertex-slicer`), add to Cargo workspace members
 - [x] Define `PrinterProfile`/`SliceSettings` config structs (`slicer/src/profile.rs`)
@@ -181,26 +167,26 @@ License: dual **MIT OR Apache-2.0**.
 - [x] Add desktop Tauri `slice_model` command for local/offline slicing
 - [x] Build minimal slicer settings + layer-preview panel in frontend (`SlicerPanel.tsx`)
 - [x] Write ADR: slicing architecture (standalone crate vs. plugin trait; hand-rolled offset vs. external dependency)
-- [ ] (Fast-follow) Implement support structure generation (basic overhang-triggered supports)
+- [x] (Fast-follow) Implement support structure generation (basic overhang-triggered supports) (`tpt-vertex-slicer/src/support.rs` — grid/pillar supports from overhang detection)
 - [ ] (Fast-follow) Implement tree/organic supports
-- [ ] (Fast-follow) Implement adaptive layer height
-- [ ] (Fast-follow) Implement bridging detection and bridge-specific speed/cooling
-- [ ] (Fast-follow) Implement multi-material/multi-extruder toolpath support
-- [ ] (Fast-follow) Implement Arachne-style variable-width perimeters and adaptive infill density
-- [ ] (Fast-follow) Implement seam placement optimization
-- [ ] (Fast-follow) Implement mesh repair/manifold-checking pass before slicing
-- [ ] (Fast-follow) Evaluate robust polygon-offset library integration
+- [x] (Fast-follow) Implement adaptive layer height (`tpt-vertex-slicer/src/adaptive.rs` — slope-driven cusp-bounded layer height)
+- [x] (Fast-follow) Implement bridging detection and bridge-specific speed/cooling (`tpt-vertex-slicer/src/bridging.rs`; speed/fan wired in `gcode.rs`)
+- [x] (Fast-follow) Implement multi-material/multi-extruder toolpath support (`RegionTag`/`ExtruderProfile` in `profile.rs`; `T{n}` tool-change + XY offset in `gcode.rs`)
+- [x] (Fast-follow) Implement Arachne-style variable-width perimeters and adaptive infill density (`tpt-vertex-slicer/src/variable_width.rs` — basic uniform-width thin-wall fill, not true per-point Arachne; adaptive infill density via the `stress` hook below)
+- [x] (Fast-follow) Implement seam placement optimization (`tpt-vertex-slicer/src/seam.rs`)
+- [x] (Fast-follow) Implement mesh repair/manifold-checking pass before slicing (`tpt-vertex-slicer/src/repair.rs`)
+- [x] (Fast-follow) Evaluate robust polygon-offset library integration (ADR-0011 — keep hand-rolled offset; `i_overlay` recommended if/when true multi-hole/Arachne offset is needed)
 - [ ] (Fast-follow) Calibrate print-time/filament-usage estimation against real printer data
-- [ ] (Fast-follow) Support importing/exporting printer-profile presets (Marlin/Klipper)
+- [x] (Fast-follow) Support importing/exporting printer-profile presets (Marlin/Klipper) (`tpt-vertex-slicer/src/presets.rs` — Klipper-style `printer.cfg` import/export)
 - [ ] (Fast-follow) Validate G-code against real hardware / a G-code simulator
 - [ ] (Fast-follow) Closed-loop hardware feedback (filament-width sensors, chamber thermistors) — needs its own firmware-integration design pass/ADR
-- [ ] (Fast-follow) Simulation-driven adaptive infill using Phase 11's stress field output
+- [x] (Fast-follow) Simulation-driven adaptive infill using Phase 10's stress field output (`slice_solid_to_gcode`'s `stress: Option<&dyn Fn(f64,f64,f64)->f64>` hook — caller supplies a normalized von Mises field from `tpt-vertex-simulation`; slicing has no opinion on loads/BCs)
 - [ ] (Fast-follow) Feature-tree-native slicing (slice directly from `FeatureTree`/CRDT state for live collaborative preview)
-- [ ] (Fast-follow) Expose slicing as an `ExporterPlugin` adapter for consistency with STL/OBJ/STEP
+- [x] (Fast-follow) Expose slicing as an `ExporterPlugin` adapter for consistency with STL/OBJ/STEP (`tpt-vertex-slicer/src/plugin.rs` — `GcodeExporterPlugin`)
 
 ---
 
-## Phase 11 — Simulation (Static FEA + Assembly Motion)
+## Phase 10 — Simulation (Static FEA + Assembly Motion)
 
 - [x] Write ADR: simulation scope and solver dependency decision
 - [x] Add `Material` struct (density, Young's modulus, Poisson's ratio, yield strength) to kernel; attach to `Part` (`kernel/src/material.rs`, `kernel/src/assembly.rs`)
@@ -225,23 +211,23 @@ License: dual **MIT OR Apache-2.0**.
 - [x] Build load/constraint picker UI (`SimulationSetup.tsx`)
 - [x] Build stress-color-mapped results viewer (reusing existing WebGPU/PBR rendering)
 - [x] Build motion-study timeline/playback UI (`MotionStudy.tsx`)
-- [ ] (Fast-follow) Nonlinear material models (plasticity, hyperelasticity)
+- [x] (Fast-follow) Nonlinear material models (plasticity, hyperelasticity) (`tpt-vertex-simulation/src/plasticity.rs` — J2 radial return with Perfect/Linear/Swift/Hollomon hardening laws + consistent tangent)
 - [ ] (Fast-follow) Large-deformation/geometric nonlinearity
-- [ ] (Fast-follow) Contact/interference detection during motion
-- [ ] (Fast-follow) Full rigid-body dynamics (mass, inertia, forces/torques, time integration, joint reaction forces)
-- [ ] (Fast-follow) Thermal analysis (steady-state/transient, thermal stress)
-- [ ] (Fast-follow) Fatigue/lifetime analysis
-- [ ] (Fast-follow) Modal/frequency analysis
-- [ ] (Fast-follow) Buckling analysis
-- [ ] (Fast-follow) Higher-order/quadratic tetrahedral elements
-- [ ] (Fast-follow) Adaptive mesh refinement
+- [x] (Fast-follow) Contact/interference detection during motion (`tpt-vertex-simulation/src/contact.rs` — AABB broad phase + Möller triangle-triangle narrow phase)
+- [x] (Fast-follow) Full rigid-body dynamics (mass, inertia, forces/torques, time integration, joint reaction forces) (`tpt-vertex-simulation/src/dynamics.rs` — semi-implicit Euler free body + RK4 revolute joint with reaction forces)
+- [x] (Fast-follow) Thermal analysis (steady-state/transient, thermal stress) (`tpt-vertex-simulation/src/thermal.rs` — steady-state conduction + thermal-stress coupled FEA; transient is a documented fast-follow)
+- [x] (Fast-follow) Fatigue/lifetime analysis (`tpt-vertex-simulation/src/fatigue.rs` — S-N curves, Goodman/Gerber mean-stress correction, Miner's cumulative damage)
+- [x] (Fast-follow) Modal/frequency analysis (`tpt-vertex-simulation/src/modal.rs` — lumped-mass Jacobi eigensolver for K x = ω² M x)
+- [x] (Fast-follow) Buckling analysis (`tpt-vertex-simulation/src/buckling.rs` — geometric stiffness matrix, eigenvalue buckling via K⁻¹G)
+- [x] (Fast-follow) Higher-order/quadratic tetrahedral elements (`tpt-vertex-simulation/src/quadratic_tet.rs` — 10-node quad tet with 4-point Gauss quadrature)
+- [x] (Fast-follow) Adaptive mesh refinement (`tpt-vertex-simulation/src/adaptivity.rs` — ZZ error estimator, longest-edge bisection, adaptive loop)
 - [ ] (Fast-follow) Multi-part/assembly-level contact-coupled static FEA
 - [ ] (Fast-follow) In-browser/wasm simulation execution
 - [ ] (Fast-follow) Optimization/topology-optimization studies driven by simulation results
 
 ---
 
-## Phase 12 — Other SolidWorks-class Functionality (future prioritization)
+## Phase 11 — Other SolidWorks-class Functionality (future prioritization)
 
 - [ ] Sheet metal module (flat-pattern unfolding, bend allowances, bend-order sequencing)
 - [ ] CAM: toolpath generation for CNC milling/turning, post-processors
@@ -251,7 +237,7 @@ License: dual **MIT OR Apache-2.0**.
 
 ---
 
-## Phase 13 — Printer Connectivity (Network Printing)
+## Phase 12 — Printer Connectivity (Network Printing)
 
 - [ ] Write ADR: printer connectivity architecture — unified ESP3D/OctoPrint client, MVP scope (ADR-0010)
 - [ ] Scaffold `tpt-vertex-printer-link` crate, add to Cargo workspace members

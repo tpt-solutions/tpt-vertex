@@ -13,6 +13,18 @@ use crate::layers::{Contour, P2};
 pub struct InfillLine {
     pub a: P2,
     pub b: P2,
+    /// True when this line fills a bridge (unsupported span) and should print
+    /// at bridge-specific speed/cooling.
+    pub is_bridge: bool,
+    /// Index of the extruder/tool that should print this line (multi-material
+    /// / multi-extruder toolpaths); `0` is the default single-extruder case.
+    pub tool: usize,
+}
+
+impl InfillLine {
+    pub fn new(a: P2, b: P2) -> Self {
+        InfillLine { a, b, is_bridge: false, tool: 0 }
+    }
 }
 
 /// Generate infill lines for `region` (the innermost wall, treated as the fill
@@ -135,16 +147,16 @@ fn clip_line_to_polygon(
         let px = a.x + mid * seg_dx;
         let py = a.y + mid * seg_dy;
         if point_in_polygon(poly, P2::new(px, py)) {
-            return Some(InfillLine {
-                a: P2::new(a.x + w[0] * seg_dx, a.y + w[0] * seg_dy),
-                b: P2::new(a.x + w[1] * seg_dx, a.y + w[1] * seg_dy),
-            });
+            return Some(InfillLine::new(
+                P2::new(a.x + w[0] * seg_dx, a.y + w[0] * seg_dy),
+                P2::new(a.x + w[1] * seg_dx, a.y + w[1] * seg_dy),
+            ));
         }
     }
     None
 }
 
-fn point_in_polygon(poly: &Contour, p: P2) -> bool {
+pub(crate) fn point_in_polygon(poly: &Contour, p: P2) -> bool {
     let n = poly.points.len();
     let mut inside = false;
     for i in 0..n {

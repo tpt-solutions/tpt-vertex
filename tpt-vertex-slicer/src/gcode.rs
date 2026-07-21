@@ -4,11 +4,14 @@
 //!
 //! Produces Marlin/Klipper-style G-code (absolute coordinates, `E` extrusion in
 //! mm) from a sequence of [`LayerPlan`]s, honouring the printer profile and
-//! material calibration (flow ratio, temperatures, cooling).
+//! material calibration (flow ratio, temperatures, cooling), per-path
+//! bridge speed/cooling, per-path extrusion-width overrides (variable-width
+//! thin walls, support pillars), and multi-tool changes (`T{n}`) with
+//! per-extruder XY offset and temperature.
 
+use crate::layers::P2;
 use crate::path::{LayerPlan, Move};
 use crate::profile::{MaterialCalibration, PrinterProfile};
-use crate::layers::P2;
 
 /// Result of G-code emission: the textual program plus simple metadata.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -26,10 +29,12 @@ pub fn emit_gcode(
     material: &MaterialCalibration,
 ) -> GCode {
     let mut text = String::new();
-    let width = printer.extrusion_width();
+    let default_width = printer.extrusion_width();
     let fil_area = printer.filament_area();
     let mut e_total = 0.0;
     let mut time_s = 0.0;
+    let mut current_tool = 0usize;
+    let mut fan_pct: Option<u32> = None;
 
     // --- Header / start G-code ---
     let nozzle_t = material.nozzle_temperature(printer.nozzle_temperature);
@@ -50,13 +55,42 @@ pub fn emit_gcode(
     let mut last: Option<P2> = None;
     let mut last_z = 0.0;
 
+    let set_fan = |text: &mut String, fan_pct: &mut Option<u32>, pct: u32| {
+        if *fan_pct != Some(pct) {
+            if pct == 0 {
+                text.push_str("M107 ; fan off\n");
+            } else {
+                text.push_str(&format!("M106 S{} ; fan speed\n", (pct as f32 * 2.55) as u32));
+            }
+            *fan_pct = Some(pct);
+        }
+    };
+
+    let change_tool = |text: &mut String, current_tool: &mut usize, tool: usize| {
+        if *current_tool != tool {
+            text.push_str(&format!("T{} ; tool change\n", tool));
+            let t = material.nozzle_temperature(printer.tool_temperature(tool));
+            text.push_str(&format!("M104 S{:.1} ; set tool temp\n", t));
+            *current_tool = tool;
+        }
+    };
+
     for plan in plans {
         text.push_str(&format!("; LAYER Z={:.3}\n", plan.z));
         text.push_str(&format!("G1 Z{:.3} F{:.0}\n", plan.z, printer.travel_speed * 60.0));
 
-        for m in &plan.moves {
+        let mut moves = plan.moves.iter().peekable();
+        while let Some(m) = moves.next() {
             match m {
                 Move::Travel { to, z, retract, z_hop } => {
+                    // A travel move is followed by the extrusion it's
+                    // positioning for; switch tool now so the move already
+                    // targets the right nozzle's offset.
+                    if let Some(Move::Extrude { path, .. }) = moves.peek() {
+                        change_tool(&mut text, &mut current_tool, path.tool);
+                    }
+                    let (ox, oy) = printer.tool_offset(current_tool);
+
                     if *retract {
                         e_total -= printer.retraction_length;
                         text.push_str(&format!(
@@ -74,8 +108,8 @@ pub fn emit_gcode(
                     }
                     text.push_str(&format!(
                         "G0 X{:.3} Y{:.3} F{:.0}\n",
-                        to.x,
-                        to.y,
+                        to.x + ox,
+                        to.y + oy,
                         printer.travel_speed * 60.0
                     ));
                     if *z_hop {
@@ -97,12 +131,28 @@ pub fn emit_gcode(
                     last_z = *z;
                 }
                 Move::Extrude { path, z } => {
+                    change_tool(&mut text, &mut current_tool, path.tool);
+                    let (ox, oy) = printer.tool_offset(current_tool);
+
+                    let fan_target = if path.is_bridge {
+                        100
+                    } else {
+                        (material.cooling_fraction.clamp(0.0, 1.0) * 100.0) as u32
+                    };
+                    set_fan(&mut text, &mut fan_pct, fan_target);
+
+                    let speed = if path.is_bridge {
+                        printer.bridge_speed()
+                    } else {
+                        printer.print_speed
+                    };
+
                     if let Some(first) = path.points.first() {
                         if last.is_none_or(|p| p.dist(*first) > 1e-6) {
                             text.push_str(&format!(
                                 "G1 X{:.3} Y{:.3} F{:.0}\n",
-                                first.x,
-                                first.y,
+                                first.x + ox,
+                                first.y + oy,
                                 printer.travel_speed * 60.0
                             ));
                         }
@@ -110,6 +160,7 @@ pub fn emit_gcode(
                     let mut prev = *path.points.first().unwrap();
                     // Bead height = this layer's thickness (delta from previous Z).
                     let layer_h = (plan.z - last_z).abs().max(0.01);
+                    let width = path.width.unwrap_or(default_width);
                     for &p in path.points.iter().skip(1) {
                         let d = prev.dist(p);
                         if d < 1e-9 {
@@ -122,12 +173,12 @@ pub fn emit_gcode(
                         e_total += seg_e;
                         text.push_str(&format!(
                             "G1 X{:.3} Y{:.3} E{:.4} F{:.0}\n",
-                            p.x,
-                            p.y,
+                            p.x + ox,
+                            p.y + oy,
                             e_total,
-                            printer.print_speed * 60.0
+                            speed * 60.0
                         ));
-                        time_s += d / printer.print_speed;
+                        time_s += d / speed;
                         prev = p;
                     }
                     last = path.points.last().copied();
@@ -138,6 +189,7 @@ pub fn emit_gcode(
     }
 
     // --- End G-code ---
+    text.push_str("M107 ; fan off\n");
     text.push_str("M104 S0 ; hotend off\n");
     text.push_str("M140 S0 ; bed off\n");
     text.push_str("G1 Z300 F300 ; present\n");
@@ -155,6 +207,19 @@ pub fn emit_gcode(
 mod tests {
     use super::*;
     use crate::path::{ExtrusionPath, Move};
+    use crate::profile::ExtruderProfile;
+
+    fn rect_path() -> ExtrusionPath {
+        ExtrusionPath::new(
+            vec![
+                P2::new(0.0, 0.0),
+                P2::new(10.0, 0.0),
+                P2::new(10.0, 10.0),
+                P2::new(0.0, 10.0),
+            ],
+            true,
+        )
+    }
 
     #[test]
     fn emits_header_and_extrusion() {
@@ -162,18 +227,7 @@ mod tests {
         let mat = MaterialCalibration::default();
         let plan = LayerPlan {
             z: 0.2,
-            moves: vec![Move::Extrude {
-                z: 0.2,
-                path: ExtrusionPath {
-                    closed: true,
-                    points: vec![
-                        P2::new(0.0, 0.0),
-                        P2::new(10.0, 0.0),
-                        P2::new(10.0, 10.0),
-                        P2::new(0.0, 10.0),
-                    ],
-                },
-            }],
+            moves: vec![Move::Extrude { z: 0.2, path: rect_path() }],
         };
         let g = emit_gcode(&[plan], &printer, &mat);
         assert!(g.text.contains("G90"));
@@ -181,5 +235,68 @@ mod tests {
         assert!(g.text.contains("E"));
         assert_eq!(g.layer_count, 1);
         assert!(g.estimated_filament_mm > 0.0);
+    }
+
+    #[test]
+    fn bridge_path_uses_bridge_speed_and_full_fan() {
+        let printer = PrinterProfile::default();
+        let mat = MaterialCalibration::default();
+        let mut bridge = rect_path();
+        bridge.is_bridge = true;
+        let plan = LayerPlan {
+            z: 0.2,
+            moves: vec![Move::Extrude { z: 0.2, path: bridge }],
+        };
+        let g = emit_gcode(&[plan], &printer, &mat);
+        assert!(g.text.contains("M106 S255"));
+        let expected_feed = format!("F{:.0}", printer.bridge_speed() * 60.0);
+        assert!(g.text.contains(&expected_feed));
+    }
+
+    #[test]
+    fn variable_width_path_changes_extrusion_per_length() {
+        let printer = PrinterProfile::default();
+        let mat = MaterialCalibration::default();
+        let mut narrow = rect_path();
+        narrow.width = Some(printer.extrusion_width());
+        let mut wide = rect_path();
+        wide.width = Some(printer.extrusion_width() * 3.0);
+
+        let g_narrow = emit_gcode(
+            &[LayerPlan { z: 0.2, moves: vec![Move::Extrude { z: 0.2, path: narrow }] }],
+            &printer,
+            &mat,
+        );
+        let g_wide = emit_gcode(
+            &[LayerPlan { z: 0.2, moves: vec![Move::Extrude { z: 0.2, path: wide }] }],
+            &printer,
+            &mat,
+        );
+        assert!(g_wide.estimated_filament_mm > g_narrow.estimated_filament_mm);
+    }
+
+    #[test]
+    fn tool_change_emits_t_command_and_offset_position() {
+        let printer = PrinterProfile {
+            extruders: vec![ExtruderProfile {
+                tool: 1,
+                nozzle_diameter: 0.4,
+                x_offset: 25.0,
+                y_offset: 0.0,
+                temperature: 220.0,
+            }],
+            ..PrinterProfile::default()
+        };
+        let mat = MaterialCalibration::default();
+        let mut tool1 = rect_path();
+        tool1.tool = 1;
+        let plan = LayerPlan {
+            z: 0.2,
+            moves: vec![Move::Extrude { z: 0.2, path: tool1 }],
+        };
+        let g = emit_gcode(&[plan], &printer, &mat);
+        assert!(g.text.contains("T1 ; tool change"));
+        // First point (0,0) offset by +25 in X.
+        assert!(g.text.contains("X25.000"));
     }
 }

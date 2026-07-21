@@ -2559,6 +2559,7 @@ name = "tpt-vertex-slicer"
 version = "0.1.0"
 dependencies = [
  "tpt-vertex-kernel",
+ "tpt-vertex-manufacturing",
 ]
 
 [[package]]

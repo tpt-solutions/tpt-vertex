@@ -2,6 +2,12 @@
 //!
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
+use crate::adaptive::AdaptiveLayerSettings;
+use crate::bridging::BridgeSettings;
+use crate::seam::SeamMode;
+use crate::support::SupportSettings;
+use crate::variable_width::VariableWidthSettings;
+
 /// A configurable FDM printer profile (dimensions, kinematics, temperatures).
 #[derive(Debug, Clone, PartialEq)]
 pub struct PrinterProfile {
@@ -31,6 +37,11 @@ pub struct PrinterProfile {
     pub retraction_speed: f64,
     /// Z-hop height in millimetres applied during travel.
     pub z_hop: f64,
+    /// Fraction of `print_speed` used for bridge (unsupported-span) moves.
+    pub bridge_speed_factor: f64,
+    /// Additional extruders beyond the default tool 0 (multi-material /
+    /// multi-extruder printers). Empty means a single default extruder.
+    pub extruders: Vec<ExtruderProfile>,
 }
 
 impl Default for PrinterProfile {
@@ -49,6 +60,8 @@ impl Default for PrinterProfile {
             retraction_length: 1.0,
             retraction_speed: 45.0,
             z_hop: 0.2,
+            bridge_speed_factor: 0.6,
+            extruders: Vec::new(),
         }
     }
 }
@@ -64,6 +77,44 @@ impl PrinterProfile {
         let r = self.filament_diameter / 2.0;
         std::f64::consts::PI * r * r
     }
+
+    /// Print speed to use for bridge (unsupported-span) moves, in mm/s.
+    pub fn bridge_speed(&self) -> f64 {
+        self.print_speed * self.bridge_speed_factor
+    }
+
+    /// The extruder profile for `tool`, if one beyond the default (tool 0,
+    /// using this printer's own nozzle/temperature) has been configured.
+    pub fn extruder(&self, tool: usize) -> Option<&ExtruderProfile> {
+        self.extruders.iter().find(|e| e.tool == tool)
+    }
+
+    /// XY nozzle offset for `tool`, in millimetres, relative to tool 0.
+    pub fn tool_offset(&self, tool: usize) -> (f64, f64) {
+        self.extruder(tool).map(|e| (e.x_offset, e.y_offset)).unwrap_or((0.0, 0.0))
+    }
+
+    /// Nozzle temperature for `tool`, falling back to the printer's default.
+    pub fn tool_temperature(&self, tool: usize) -> f64 {
+        self.extruder(tool)
+            .map(|e| e.temperature)
+            .unwrap_or(self.nozzle_temperature)
+    }
+}
+
+/// One additional extruder on a multi-material/multi-extruder printer.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ExtruderProfile {
+    /// Tool index as selected by the `T{n}` G-code command (0 is the
+    /// printer's own default extruder and does not need an entry here).
+    pub tool: usize,
+    /// Nozzle diameter in millimetres for this extruder.
+    pub nozzle_diameter: f64,
+    /// XY offset in millimetres from tool 0's nozzle to this one's.
+    pub x_offset: f64,
+    pub y_offset: f64,
+    /// Hotend temperature in °C for this extruder's material.
+    pub temperature: f64,
 }
 
 /// Per-material calibration overrides (per-spool tuning).
@@ -144,6 +195,16 @@ impl BodyRole {
     }
 }
 
+/// Per-region tagging: structural role plus which extruder/tool should print
+/// the region (multi-material/multi-extruder toolpaths).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RegionTag {
+    /// `None` falls back to `SliceSettings::default_role`.
+    pub role: Option<BodyRole>,
+    /// Tool/extruder index; `0` is the default single-extruder case.
+    pub tool: usize,
+}
+
 /// Slice settings (geometry of the toolpath, independent of hardware).
 #[derive(Debug, Clone, PartialEq)]
 pub struct SliceSettings {
@@ -163,6 +224,22 @@ pub struct SliceSettings {
     pub top_bottom_layers: usize,
     /// Default body role applied to all regions when no tagging is supplied.
     pub default_role: BodyRole,
+    /// Basic overhang-triggered support generation; `None` disables supports.
+    pub supports: Option<SupportSettings>,
+    /// Adaptive layer height driven by local surface slope; `None` uses the
+    /// fixed `layer_height` uniformly.
+    pub adaptive_layers: Option<AdaptiveLayerSettings>,
+    /// Bridging detection; `None` disables bridge-specific speed/cooling.
+    pub bridging: Option<BridgeSettings>,
+    /// Seam (perimeter loop start point) placement strategy; `None` keeps
+    /// whatever start point the contour-stitching pass produced.
+    pub seam: Option<SeamMode>,
+    /// Basic (uniform-width) thin-wall fill for regions too thin to fit the
+    /// requested `wall_count`; `None` leaves such regions unfilled, as before.
+    pub variable_width: Option<VariableWidthSettings>,
+    /// Run a mesh repair/manifold-checking pass (vertex welding, degenerate
+    /// triangle removal) before slicing.
+    pub repair_mesh: bool,
 }
 
 impl Default for SliceSettings {
@@ -176,6 +253,12 @@ impl Default for SliceSettings {
             zigzag_infill: false,
             top_bottom_layers: 3,
             default_role: BodyRole::Structural,
+            supports: None,
+            adaptive_layers: None,
+            bridging: None,
+            seam: None,
+            variable_width: None,
+            repair_mesh: false,
         }
     }
 }

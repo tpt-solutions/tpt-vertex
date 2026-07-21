@@ -171,7 +171,7 @@ fn slice_spec(model: &ModelSpec, slice: &SliceSpec) -> SliceOutput {
         ..MaterialCalibration::default()
     };
 
-    let res = slice_solid_to_gcode(&solid, &printer, &settings, &material, None);
+    let res = slice_solid_to_gcode(&solid, &printer, &settings, &material, None, None);
 
     let mut layers = Vec::with_capacity(res.layers.len());
     for plan in &res.layers {

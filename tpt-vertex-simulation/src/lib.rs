@@ -11,14 +11,24 @@
 //! [`post`] (stresses / von Mises / displacements). See the Phase-11 ADR for the
 //! scope decision and the `faer` sparse-solver fast-follow.
 
+pub mod adaptivity;
 pub mod assembly;
 pub mod bc;
+pub mod buckling;
+pub mod contact;
+pub mod dynamics;
 pub mod element;
+pub mod fatigue;
+pub mod mass_props;
 pub mod material;
 pub mod mesh;
+pub mod modal;
 pub mod motion;
+pub mod plasticity;
 pub mod post;
+pub mod quadratic_tet;
 pub mod solve;
+pub mod thermal;
 
 use tpt_vertex_kernel::geometry::solid::Solid;
 use tpt_vertex_kernel::material::Material;
