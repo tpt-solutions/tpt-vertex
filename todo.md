@@ -212,7 +212,7 @@ License: dual **MIT OR Apache-2.0**.
 - [x] Build stress-color-mapped results viewer (reusing existing WebGPU/PBR rendering)
 - [x] Build motion-study timeline/playback UI (`MotionStudy.tsx`)
 - [x] (Fast-follow) Nonlinear material models (plasticity, hyperelasticity) (`tpt-vertex-simulation/src/plasticity.rs` — J2 radial return with Perfect/Linear/Swift/Hollomon hardening laws + consistent tangent)
-- [ ] (Fast-follow) Large-deformation/geometric nonlinearity
+- [x] (Fast-follow) Large-deformation/geometric nonlinearity (`tpt-vertex-simulation/src/nonlinear.rs` — Total Lagrangian Newton-Raphson with material + geometric tangent stiffness)
 - [x] (Fast-follow) Contact/interference detection during motion (`tpt-vertex-simulation/src/contact.rs` — AABB broad phase + Möller triangle-triangle narrow phase)
 - [x] (Fast-follow) Full rigid-body dynamics (mass, inertia, forces/torques, time integration, joint reaction forces) (`tpt-vertex-simulation/src/dynamics.rs` — semi-implicit Euler free body + RK4 revolute joint with reaction forces)
 - [x] (Fast-follow) Thermal analysis (steady-state/transient, thermal stress) (`tpt-vertex-simulation/src/thermal.rs` — steady-state conduction + thermal-stress coupled FEA; transient is a documented fast-follow)
@@ -221,9 +221,9 @@ License: dual **MIT OR Apache-2.0**.
 - [x] (Fast-follow) Buckling analysis (`tpt-vertex-simulation/src/buckling.rs` — geometric stiffness matrix, eigenvalue buckling via K⁻¹G)
 - [x] (Fast-follow) Higher-order/quadratic tetrahedral elements (`tpt-vertex-simulation/src/quadratic_tet.rs` — 10-node quad tet with 4-point Gauss quadrature)
 - [x] (Fast-follow) Adaptive mesh refinement (`tpt-vertex-simulation/src/adaptivity.rs` — ZZ error estimator, longest-edge bisection, adaptive loop)
-- [ ] (Fast-follow) Multi-part/assembly-level contact-coupled static FEA
-- [ ] (Fast-follow) In-browser/wasm simulation execution
-- [ ] (Fast-follow) Optimization/topology-optimization studies driven by simulation results
+- [x] (Fast-follow) Multi-part/assembly-level contact-coupled static FEA (`tpt-vertex-simulation/src/contact_fea.rs` — node-to-surface penalty contact assembled into the Newton-Raphson tangent from `nonlinear`)
+- [x] (Fast-follow) In-browser/wasm simulation execution (`tpt-vertex-simulation/src/wasm_api.rs` + `wasm` crate feature that drops the `faer`/rayon dependency in favor of the dense LU solver for `wasm32-unknown-unknown`)
+- [x] (Fast-follow) Optimization/topology-optimization studies driven by simulation results (`tpt-vertex-simulation/src/topo_opt.rs` — SIMP method with OC update rule)
 
 ---
 
@@ -239,18 +239,18 @@ License: dual **MIT OR Apache-2.0**.
 
 ## Phase 12 — Printer Connectivity (Network Printing)
 
-- [ ] Write ADR: printer connectivity architecture — unified ESP3D/OctoPrint client, MVP scope (ADR-0010)
-- [ ] Scaffold `tpt-vertex-printer-link` crate, add to Cargo workspace members
-- [ ] Define `PrinterTarget`/`ProtocolKind` connection-config types, distinct from `tpt-vertex-slicer`'s physical `PrinterProfile` (`tpt-vertex-printer-link/src/target.rs`)
-- [ ] Define `PrinterClient` trait, `StatusSnapshot`, `ConnectionInfo`, `PrinterError`, `make_client` factory (`tpt-vertex-printer-link/src/client.rs`)
-- [ ] Implement ESP3D HTTP client — upload + M115/M105/M27 command polling + M23/M24 print start (`tpt-vertex-printer-link/src/esp3d.rs`)
-- [ ] Implement OctoPrint/Moonraker (`octoprint_compat`)-compatible REST client (`tpt-vertex-printer-link/src/octoprint.rs`)
+- [x] Write ADR: printer connectivity architecture — unified ESP3D/OctoPrint client, MVP scope (`docs/adr/0010-printer-connectivity.md`)
+- [x] Scaffold `tpt-vertex-printer-link` crate, add to Cargo workspace members
+- [x] Define `PrinterTarget`/`ProtocolKind` connection-config types, distinct from `tpt-vertex-slicer`'s physical `PrinterProfile` (`tpt-vertex-printer-link/src/target.rs`)
+- [x] Define `PrinterClient` trait, `StatusSnapshot`, `ConnectionInfo`, `PrinterError`, `make_client` factory (`tpt-vertex-printer-link/src/client.rs`)
+- [x] Implement ESP3D HTTP client — upload + M115/M105/M27 command polling + M23/M24 print start (`tpt-vertex-printer-link/src/esp3d.rs`)
+- [x] Implement OctoPrint/Moonraker (`octoprint_compat`)-compatible REST client (`tpt-vertex-printer-link/src/octoprint.rs`)
 - [x] Write unit tests for both clients against a mock HTTP server (mockito), covering success/error/malformed-reply paths
-- [ ] Add `tauri-plugin-store` and printer profile persistence (`printers.json` in app config dir)
-- [ ] Add desktop Tauri printer commands: list/save/delete profile, test connection, send G-code, get status (`desktop/src-tauri/src/printer.rs`)
-- [ ] Add frontend Tauri IPC wrapper (`frontend/src/printer/client.ts`) — first real `@tauri-apps/api` usage in the app
-- [ ] Build printer profile management panel (`PrinterPanel.tsx`)
-- [ ] Add "Send to Printer" action + connect/upload/print status feedback to `SlicerPanel.tsx`
+- [x] Add `tauri-plugin-store` and printer profile persistence (`printers.json` in app config dir) (`desktop/src-tauri/src/printer.rs`)
+- [x] Add desktop Tauri printer commands: list/save/delete profile, test connection, send G-code, get status (`desktop/src-tauri/src/printer.rs`)
+- [x] Add frontend Tauri IPC wrapper (`frontend/src/printer/client.ts`) — first real `@tauri-apps/api` usage in the app
+- [x] Build printer profile management panel (`PrinterPanel.tsx`)
+- [x] Add "Send to Printer" action + connect/upload/print status feedback to `SlicerPanel.tsx`
 - [ ] Manually verify end-to-end against OctoPrint's built-in Virtual Printer, a real Moonraker instance (`octoprint_compat` enabled), and a real ESP32 dev board flashed with ESP3D firmware
 - [ ] (Fast-follow) mDNS/zeroconf printer auto-discovery
 - [ ] (Fast-follow) Stream G-code to printer layer-by-layer as it's sliced, instead of upload-then-print

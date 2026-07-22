@@ -78,7 +78,17 @@ pub fn shape_gradients(n: &[[f64; 3]; 4]) -> [[f64; 3]; 4] {
     let inv = invert3(&j);
     // ∂N/∂ξ for nodes 1..3 is the standard linear-tet gradient in natural space:
     //   ∂N1/∂ξ = -1, ∂N2/∂ξ = 1, ∂N3/∂ξ = 0, ∂N4/∂ξ = 0, etc.
-    // ∂(x,y,z)/∂ξ = J · [∂N/∂ξ]_vector, so ∂N/∂(x,y,z) = J⁻¹ · ∂N/∂ξ.
+    // J[i][j] = ∂(phys_i)/∂(natural_j) (columns are x1,x2,x3), so by the chain
+    // rule ∂N/∂ξ_j = Σ_i ∂N/∂x_i · ∂x_i/∂ξ_j = (Jᵀ ∇N)_j, i.e.
+    // ∂N/∂ξ = Jᵀ · ∇N, so ∇N = (Jᵀ)⁻¹ · ∂N/∂ξ = (J⁻¹)ᵀ · ∂N/∂ξ — the
+    // *transpose* of the inverse, not the inverse itself. Using `inv`
+    // untransposed only happens to be correct for axis-aligned/orthogonal
+    // tets (where J⁻¹ is symmetric, e.g. the reference tet used in
+    // `shape_gradients_unit_tet` below); for a general skewed tet it silently
+    // returns the wrong gradient direction, which broke the FEM patch test
+    // (a uniform gradient field no longer solved the discrete conduction/
+    // stiffness equations exactly) — confirmed by direct residual
+    // computation, not just a mesh-quality artifact.
     let dn_dxi = [
         [-1.0, -1.0, -1.0],
         [1.0, 0.0, 0.0],
@@ -90,7 +100,7 @@ pub fn shape_gradients(n: &[[f64; 3]; 4]) -> [[f64; 3]; 4] {
         for (k, gik) in g[i].iter_mut().enumerate() {
             let mut s = 0.0;
             for (l, &xl) in row.iter().enumerate() {
-                s += inv[k][l] * xl;
+                s += inv[l][k] * xl;
             }
             *gik = s;
         }

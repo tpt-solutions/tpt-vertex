@@ -25,7 +25,12 @@ impl MotionPlayer {
     /// Create a player for the joint whose `mover` is `part`. The drive
     /// parameter is scrubbed from `start` to `end` (radians for revolute/
     /// cylindrical angle, mm for slider/cylindrical offset).
-    pub fn new(assembly: Assembly, part: tpt_vertex_kernel::assembly::PartId, start: f64, end: f64) -> Self {
+    pub fn new(
+        assembly: Assembly,
+        part: tpt_vertex_kernel::assembly::PartId,
+        start: f64,
+        end: f64,
+    ) -> Self {
         MotionPlayer {
             assembly,
             part,
@@ -57,7 +62,8 @@ impl MotionPlayer {
 
     /// Advance by a normalized step `dt` and return the updated assembly.
     pub fn step(&mut self, dt: f64) -> &Assembly {
-        let t = ((self.current - self.start) / (self.end - self.start + 1e-12) + dt).clamp(0.0, 1.0);
+        let t =
+            ((self.current - self.start) / (self.end - self.start + 1e-12) + dt).clamp(0.0, 1.0);
         self.frame_at(t)
     }
 
@@ -88,7 +94,13 @@ mod tests {
         s.line(Vec2::new(1.0, 0.0), Vec2::new(1.0, 1.0));
         s.line(Vec2::new(1.0, 1.0), Vec2::ZERO);
         let mut t = tpt_vertex_kernel::feature_tree::FeatureTree::new();
-        t.add(Feature::Extrude { sketch: s, height: 1.0 }, None);
+        t.add(
+            Feature::Extrude {
+                sketch: s,
+                height: 1.0,
+            },
+            None,
+        );
         t
     }
 
@@ -112,7 +124,12 @@ mod tests {
         // The mover's rotation quaternion should match a +90° rotation about Z.
         let expected = expected_rotation(Vec3::Z, angle);
         let q = p.transform.rotation;
-        assert!((q.w - expected.w).abs() < 1e-9, "w {} vs {}", q.w, expected.w);
+        assert!(
+            (q.w - expected.w).abs() < 1e-9,
+            "w {} vs {}",
+            q.w,
+            expected.w
+        );
         assert!((q.x - expected.x).abs() < 1e-9);
         assert!((q.y - expected.y).abs() < 1e-9);
         assert!((q.z - expected.z).abs() < 1e-9);
@@ -134,6 +151,10 @@ mod tests {
         let mut player = MotionPlayer::new(asm, mover, 0.0, off);
         let solved = player.frame_at(1.0);
         let p = solved.part(mover).unwrap();
-        assert!((p.transform.translation.x - off).abs() < 1e-6, "x {}", p.transform.translation.x);
+        assert!(
+            (p.transform.translation.x - off).abs() < 1e-6,
+            "x {}",
+            p.transform.translation.x
+        );
     }
 }

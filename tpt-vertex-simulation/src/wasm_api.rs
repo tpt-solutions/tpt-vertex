@@ -52,7 +52,7 @@ pub fn run_linear_analysis(
     loads: &[f64],
 ) -> Option<WasmAnalysisResult> {
     // Parse flat arrays into VolMesh.
-    if nodes.len() % 3 != 0 || tets.len() % 4 != 0 {
+    if !nodes.len().is_multiple_of(3) || !tets.len().is_multiple_of(4) {
         return None;
     }
     let n_nodes = nodes.len() / 3;
@@ -62,10 +62,20 @@ pub fn run_linear_analysis(
         .map(|i| [nodes[i * 3], nodes[i * 3 + 1], nodes[i * 3 + 2]])
         .collect();
     let mesh_tets: Vec<[usize; 4]> = (0..n_tets)
-        .map(|i| [tets[i * 4], tets[i * 4 + 1], tets[i * 4 + 2], tets[i * 4 + 3]])
+        .map(|i| {
+            [
+                tets[i * 4],
+                tets[i * 4 + 1],
+                tets[i * 4 + 2],
+                tets[i * 4 + 3],
+            ]
+        })
         .collect();
 
-    let vol = VolMesh { nodes: mesh_nodes, tets: mesh_tets };
+    let vol = VolMesh {
+        nodes: mesh_nodes,
+        tets: mesh_tets,
+    };
 
     // Parse boundary conditions.
     let mut bc = BoundaryCondition::new();
@@ -93,15 +103,25 @@ pub fn run_linear_analysis(
 
     for tet in &vol.tets {
         let nodes = [
-            vol.nodes[tet[0]], vol.nodes[tet[1]],
-            vol.nodes[tet[2]], vol.nodes[tet[3]],
+            vol.nodes[tet[0]],
+            vol.nodes[tet[1]],
+            vol.nodes[tet[2]],
+            vol.nodes[tet[3]],
         ];
         let ke = tet_stiffness(&nodes, &d);
         let gdof = [
-            GlobalSystem::dof(tet[0], 0), GlobalSystem::dof(tet[0], 1), GlobalSystem::dof(tet[0], 2),
-            GlobalSystem::dof(tet[1], 0), GlobalSystem::dof(tet[1], 1), GlobalSystem::dof(tet[1], 2),
-            GlobalSystem::dof(tet[2], 0), GlobalSystem::dof(tet[2], 1), GlobalSystem::dof(tet[2], 2),
-            GlobalSystem::dof(tet[3], 0), GlobalSystem::dof(tet[3], 1), GlobalSystem::dof(tet[3], 2),
+            GlobalSystem::dof(tet[0], 0),
+            GlobalSystem::dof(tet[0], 1),
+            GlobalSystem::dof(tet[0], 2),
+            GlobalSystem::dof(tet[1], 0),
+            GlobalSystem::dof(tet[1], 1),
+            GlobalSystem::dof(tet[1], 2),
+            GlobalSystem::dof(tet[2], 0),
+            GlobalSystem::dof(tet[2], 1),
+            GlobalSystem::dof(tet[2], 2),
+            GlobalSystem::dof(tet[3], 0),
+            GlobalSystem::dof(tet[3], 1),
+            GlobalSystem::dof(tet[3], 2),
         ];
         for i in 0..12 {
             for j in 0..12 {

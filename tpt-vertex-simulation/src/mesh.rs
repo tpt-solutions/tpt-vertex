@@ -147,8 +147,29 @@ pub fn tetrahedralize(solid: &Solid, max_tet_edge: f64) -> Result<VolMesh, Strin
     // corner 4 (replacing [0,7,4,6] and [0,4,5,6] with a single bogus
     // [0,5,7,6]), leaving a real 1/6-of-cell volume gap per cell — the
     // meshed solid was missing material, not just a test-tolerance issue.
+    //
+    // Splitting every cell along the same space diagonal (0)-(6) is a
+    // standard, provably-conforming Kuhn/Freudenthal triangulation:
+    // translating one fixed 6-tet decomposition across a regular grid
+    // never introduces a gap or overlap, because each shared quad face is
+    // triangulated identically from both adjacent cells (verified directly:
+    // every internal triangular face across the whole mesh is shared by
+    // exactly two tets, and the total tet volume matches the solid volume
+    // exactly). The steady-state thermal patch-test failure traced to this
+    // module turned out to be a red herring from that angle — the actual
+    // bug was a transposed-inverse-Jacobian error in
+    // `element::shape_gradients` (fixed there), which silently returned the
+    // wrong gradient direction for any non-axis-aligned tet and broke the
+    // patch test regardless of how the mesh was diagonalized.
     let cell = [
-        [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1],
+        [0, 0, 0],
+        [1, 0, 0],
+        [1, 1, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 0, 1],
+        [1, 1, 1],
+        [0, 1, 1],
     ];
     let tets_local: [[usize; 4]; 6] = [
         [0, 1, 2, 6],
@@ -257,16 +278,31 @@ mod tests {
         let h = half;
         let mut v = |x: f64, y: f64, z: f64| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(-h, -h, -h), v(h, -h, -h), v(h, h, -h), v(-h, h, -h),
-            v(-h, -h, h), v(h, -h, h), v(h, h, h), v(-h, h, h),
+            v(-h, -h, -h),
+            v(h, -h, -h),
+            v(h, h, -h),
+            v(-h, h, -h),
+            v(-h, -h, h),
+            v(h, -h, h),
+            v(h, h, h),
+            v(-h, h, h),
         ];
-        let mut f = |a: u32, b: u32, c: u32| s.faces.push(tpt_vertex_kernel::geometry::solid::Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        let mut f = |a: u32, b: u32, c: u32| {
+            s.faces
+                .push(tpt_vertex_kernel::geometry::solid::Face::new(a, b, c))
+        };
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 

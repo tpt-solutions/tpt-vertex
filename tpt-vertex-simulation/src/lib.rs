@@ -80,7 +80,10 @@ pub struct AnalysisResult {
 /// Run the full static linear-elastic analysis on a kernel solid.
 ///
 /// Returns `Err` if the solid is not watertight or cannot be meshed.
-pub fn run_static_analysis(solid: &Solid, settings: &AnalysisSettings) -> Result<AnalysisResult, String> {
+pub fn run_static_analysis(
+    solid: &Solid,
+    settings: &AnalysisSettings,
+) -> Result<AnalysisResult, String> {
     let mesh = mesh::tetrahedralize(solid, settings.max_tet_edge)?;
     let e = settings.material.youngs_modulus;
     let nu = settings.material.poisson_ratio;
@@ -116,16 +119,31 @@ mod tests {
         let mut s = Solid::new();
         let mut v = |x, y, z| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(0.0, 0.0, 0.0), v(10.0, 0.0, 0.0), v(10.0, 1.0, 0.0), v(0.0, 1.0, 0.0),
-            v(0.0, 0.0, 1.0), v(10.0, 0.0, 1.0), v(10.0, 1.0, 1.0), v(0.0, 1.0, 1.0),
+            v(0.0, 0.0, 0.0),
+            v(10.0, 0.0, 0.0),
+            v(10.0, 1.0, 0.0),
+            v(0.0, 1.0, 0.0),
+            v(0.0, 0.0, 1.0),
+            v(10.0, 0.0, 1.0),
+            v(10.0, 1.0, 1.0),
+            v(0.0, 1.0, 1.0),
         ];
-        let mut f = |a, b, c| s.faces.push(tpt_vertex_kernel::geometry::solid::Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        let mut f = |a, b, c| {
+            s.faces
+                .push(tpt_vertex_kernel::geometry::solid::Face::new(a, b, c))
+        };
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 
@@ -151,7 +169,12 @@ mod tests {
         let force = 50.0; // N
         let bc = BoundaryCondition::new()
             .fix_all(&fixed)
-            .with_load(bc::PointLoad { node: tip, fx: 0.0, fy: -force, fz: 0.0 });
+            .with_load(bc::PointLoad {
+                node: tip,
+                fx: 0.0,
+                fy: -force,
+                fz: 0.0,
+            });
 
         let mat = Material::from_name("Steel"); // E=200000 MPa
         let settings = AnalysisSettings::new(mat, bc, 1.0);
@@ -163,7 +186,11 @@ mod tests {
         // and under-predicts; we only assert the correct *sign* and a non-trivial
         // downward motion (the structural pipeline is what is under test).
         let tip_disp = post::displacement_at(&res.mesh, &res.displacements, tip);
-        assert!(tip_disp[1] < -1e-4, "tip should deflect downward, got {:?}", tip_disp);
+        assert!(
+            tip_disp[1] < -1e-4,
+            "tip should deflect downward, got {:?}",
+            tip_disp
+        );
         assert!(res.max_displacement > 0.0);
     }
 

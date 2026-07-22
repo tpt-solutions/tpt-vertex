@@ -45,9 +45,15 @@ impl Aabb {
 
     /// Gap (0 if overlapping) between two boxes along the separating axes.
     pub fn gap(&self, other: &Aabb) -> f64 {
-        let dx = (self.min.x - other.max.x).max(other.min.x - self.max.x).max(0.0);
-        let dy = (self.min.y - other.max.y).max(other.min.y - self.max.y).max(0.0);
-        let dz = (self.min.z - other.max.z).max(other.min.z - self.max.z).max(0.0);
+        let dx = (self.min.x - other.max.x)
+            .max(other.min.x - self.max.x)
+            .max(0.0);
+        let dy = (self.min.y - other.max.y)
+            .max(other.min.y - self.max.y)
+            .max(0.0);
+        let dz = (self.min.z - other.max.z)
+            .max(other.min.z - self.max.z)
+            .max(0.0);
         (dx * dx + dy * dy + dz * dz).sqrt()
     }
 }
@@ -86,10 +92,20 @@ pub fn detect_interference(assembly: &Assembly) -> Vec<ContactPair> {
 
 fn check_pair(a: PartId, sa: &Solid, b: PartId, sb: &Solid) -> ContactPair {
     let (Some(ba), Some(bb)) = (Aabb::of_solid(sa), Aabb::of_solid(sb)) else {
-        return ContactPair { a, b, interfering: false, clearance: f64::INFINITY };
+        return ContactPair {
+            a,
+            b,
+            interfering: false,
+            clearance: f64::INFINITY,
+        };
     };
     if !ba.overlaps(&bb) {
-        return ContactPair { a, b, interfering: false, clearance: ba.gap(&bb) };
+        return ContactPair {
+            a,
+            b,
+            interfering: false,
+            clearance: ba.gap(&bb),
+        };
     }
     for fa in &sa.faces {
         let (a0, a1, a2) = (
@@ -104,11 +120,21 @@ fn check_pair(a: PartId, sa: &Solid, b: PartId, sb: &Solid) -> ContactPair {
                 sb.vertices[fb.c as usize],
             );
             if tri_tri_intersect(a0, a1, a2, b0, b1, b2) {
-                return ContactPair { a, b, interfering: true, clearance: 0.0 };
+                return ContactPair {
+                    a,
+                    b,
+                    interfering: true,
+                    clearance: 0.0,
+                };
             }
         }
     }
-    ContactPair { a, b, interfering: false, clearance: min_vertex_distance(sa, sb) }
+    ContactPair {
+        a,
+        b,
+        interfering: false,
+        clearance: min_vertex_distance(sa, sb),
+    }
 }
 
 fn min_vertex_distance(sa: &Solid, sb: &Solid) -> f64 {
@@ -161,14 +187,8 @@ fn tri_tri_intersect(v0: Vec3, v1: Vec3, v2: Vec3, u0: Vec3, u1: Vec3, u2: Vec3)
         }
     };
 
-    let (t1a, t1b) = interval(
-        [proj(v0), proj(v1), proj(v2)],
-        [dv0, dv1, dv2],
-    );
-    let (t2a, t2b) = interval(
-        [proj(u0), proj(u1), proj(u2)],
-        [du0, du1, du2],
-    );
+    let (t1a, t1b) = interval([proj(v0), proj(v1), proj(v2)], [dv0, dv1, dv2]);
+    let (t2a, t2b) = interval([proj(u0), proj(u1), proj(u2)], [du0, du1, du2]);
     let (t1min, t1max) = (t1a.min(t1b), t1a.max(t1b));
     let (t2min, t2max) = (t2a.min(t2b), t2a.max(t2b));
     t1min <= t2max + EPS && t2min <= t1max + EPS
@@ -270,8 +290,16 @@ mod tests {
 
     #[test]
     fn separated_triangles_do_not_intersect() {
-        let a = (Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0), Vec3::new(0.0, 1.0, 0.0));
-        let b = (Vec3::new(10.0, 0.0, 0.0), Vec3::new(11.0, 0.0, 0.0), Vec3::new(10.0, 1.0, 0.0));
+        let a = (
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(0.0, 1.0, 0.0),
+        );
+        let b = (
+            Vec3::new(10.0, 0.0, 0.0),
+            Vec3::new(11.0, 0.0, 0.0),
+            Vec3::new(10.0, 1.0, 0.0),
+        );
         assert!(!tri_tri_intersect(a.0, a.1, a.2, b.0, b.1, b.2));
     }
 
@@ -293,11 +321,20 @@ mod tests {
 
     #[test]
     fn aabb_overlap_and_gap() {
-        let a = Aabb { min: Vec3::ZERO, max: Vec3::new(1.0, 1.0, 1.0) };
-        let b = Aabb { min: Vec3::new(0.5, 0.5, 0.5), max: Vec3::new(2.0, 2.0, 2.0) };
+        let a = Aabb {
+            min: Vec3::ZERO,
+            max: Vec3::new(1.0, 1.0, 1.0),
+        };
+        let b = Aabb {
+            min: Vec3::new(0.5, 0.5, 0.5),
+            max: Vec3::new(2.0, 2.0, 2.0),
+        };
         assert!(a.overlaps(&b));
         assert_eq!(a.gap(&b), 0.0);
-        let c = Aabb { min: Vec3::new(5.0, 0.0, 0.0), max: Vec3::new(6.0, 1.0, 1.0) };
+        let c = Aabb {
+            min: Vec3::new(5.0, 0.0, 0.0),
+            max: Vec3::new(6.0, 1.0, 1.0),
+        };
         assert!(!a.overlaps(&c));
         assert!((a.gap(&c) - 4.0).abs() < 1e-9);
     }
@@ -307,16 +344,31 @@ mod tests {
         let h = half;
         let mut v = |x: f64, y: f64, z: f64| s.add_vertex(center + Vec3::new(x, y, z));
         let p = [
-            v(-h, -h, -h), v(h, -h, -h), v(h, h, -h), v(-h, h, -h),
-            v(-h, -h, h), v(h, -h, h), v(h, h, h), v(-h, h, h),
+            v(-h, -h, -h),
+            v(h, -h, -h),
+            v(h, h, -h),
+            v(-h, h, -h),
+            v(-h, -h, h),
+            v(h, -h, h),
+            v(h, h, h),
+            v(-h, h, h),
         ];
-        let mut f = |a: u32, b: u32, c: u32| s.faces.push(tpt_vertex_kernel::geometry::solid::Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        let mut f = |a: u32, b: u32, c: u32| {
+            s.faces
+                .push(tpt_vertex_kernel::geometry::solid::Face::new(a, b, c))
+        };
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 

@@ -54,29 +54,74 @@ pub fn compute(solid: &Solid, density: f64) -> MassProperties {
         m1.z += v6 / 24.0 * (z1 + z2 + z3);
 
         ixx += v6 / 60.0
-            * (y1 * y1 + y2 * y2 + y3 * y3 + y1 * y2 + y2 * y3 + y3 * y1
-                + z1 * z1 + z2 * z2 + z3 * z3 + z1 * z2 + z2 * z3 + z3 * z1);
+            * (y1 * y1
+                + y2 * y2
+                + y3 * y3
+                + y1 * y2
+                + y2 * y3
+                + y3 * y1
+                + z1 * z1
+                + z2 * z2
+                + z3 * z3
+                + z1 * z2
+                + z2 * z3
+                + z3 * z1);
         iyy += v6 / 60.0
-            * (x1 * x1 + x2 * x2 + x3 * x3 + x1 * x2 + x2 * x3 + x3 * x1
-                + z1 * z1 + z2 * z2 + z3 * z3 + z1 * z2 + z2 * z3 + z3 * z1);
+            * (x1 * x1
+                + x2 * x2
+                + x3 * x3
+                + x1 * x2
+                + x2 * x3
+                + x3 * x1
+                + z1 * z1
+                + z2 * z2
+                + z3 * z3
+                + z1 * z2
+                + z2 * z3
+                + z3 * z1);
         izz += v6 / 60.0
-            * (x1 * x1 + x2 * x2 + x3 * x3 + x1 * x2 + x2 * x3 + x3 * x1
-                + y1 * y1 + y2 * y2 + y3 * y3 + y1 * y2 + y2 * y3 + y3 * y1);
+            * (x1 * x1
+                + x2 * x2
+                + x3 * x3
+                + x1 * x2
+                + x2 * x3
+                + x3 * x1
+                + y1 * y1
+                + y2 * y2
+                + y3 * y3
+                + y1 * y2
+                + y2 * y3
+                + y3 * y1);
         ixy += v6 / 120.0
-            * (2.0 * x1 * y1 + 2.0 * x2 * y2 + 2.0 * x3 * y3
-                + x1 * y2 + x2 * y1
-                + x1 * y3 + x3 * y1
-                + x2 * y3 + x3 * y2);
+            * (2.0 * x1 * y1
+                + 2.0 * x2 * y2
+                + 2.0 * x3 * y3
+                + x1 * y2
+                + x2 * y1
+                + x1 * y3
+                + x3 * y1
+                + x2 * y3
+                + x3 * y2);
         ixz += v6 / 120.0
-            * (2.0 * x1 * z1 + 2.0 * x2 * z2 + 2.0 * x3 * z3
-                + x1 * z2 + x2 * z1
-                + x1 * z3 + x3 * z1
-                + x2 * z3 + x3 * z2);
+            * (2.0 * x1 * z1
+                + 2.0 * x2 * z2
+                + 2.0 * x3 * z3
+                + x1 * z2
+                + x2 * z1
+                + x1 * z3
+                + x3 * z1
+                + x2 * z3
+                + x3 * z2);
         iyz += v6 / 120.0
-            * (2.0 * y1 * z1 + 2.0 * y2 * z2 + 2.0 * y3 * z3
-                + y1 * z2 + y2 * z1
-                + y1 * z3 + y3 * z1
-                + y2 * z3 + y3 * z2);
+            * (2.0 * y1 * z1
+                + 2.0 * y2 * z2
+                + 2.0 * y3 * z3
+                + y1 * z2
+                + y2 * z1
+                + y1 * z3
+                + y3 * z1
+                + y2 * z3
+                + y3 * z2);
     }
 
     let volume = vol6_sum / 6.0;
@@ -92,11 +137,7 @@ pub fn compute(solid: &Solid, density: f64) -> MassProperties {
 
     // Inertia tensor about the origin (volume-space units, tensor convention:
     // diagonal = ∫(y²+z²)dV etc., off-diagonal = -∫xy dV etc.).
-    let i_origin = [
-        [ixx, -ixy, -ixz],
-        [-ixy, iyy, -iyz],
-        [-ixz, -iyz, izz],
-    ];
+    let i_origin = [[ixx, -ixy, -ixz], [-ixy, iyy, -iyz], [-ixz, -iyz, izz]];
 
     // Parallel-axis theorem: I_origin = I_com + V*(|c|²·I3 - c⊗c)
     //                      => I_com = I_origin - V*(|c|²·I3 - c⊗c)
@@ -112,9 +153,15 @@ pub fn compute(solid: &Solid, density: f64) -> MassProperties {
 
     let mass = density * volume;
     let inertia_com = Mat3::from_row_major([
-        i_com[0][0] * density, i_com[0][1] * density, i_com[0][2] * density,
-        i_com[1][0] * density, i_com[1][1] * density, i_com[1][2] * density,
-        i_com[2][0] * density, i_com[2][1] * density, i_com[2][2] * density,
+        i_com[0][0] * density,
+        i_com[0][1] * density,
+        i_com[0][2] * density,
+        i_com[1][0] * density,
+        i_com[1][1] * density,
+        i_com[1][2] * density,
+        i_com[2][0] * density,
+        i_com[2][1] * density,
+        i_com[2][2] * density,
     ]);
 
     MassProperties {
@@ -135,17 +182,29 @@ mod tests {
         let h = half;
         let mut v = |x: f64, y: f64, z: f64| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(-h, -h, -h), v(h, -h, -h), v(h, h, -h), v(-h, h, -h),
-            v(-h, -h, h), v(h, -h, h), v(h, h, h), v(-h, h, h),
+            v(-h, -h, -h),
+            v(h, -h, -h),
+            v(h, h, -h),
+            v(-h, h, -h),
+            v(-h, -h, h),
+            v(h, -h, h),
+            v(h, h, h),
+            v(-h, h, h),
         ];
         // Wound so each face's normal (right-hand rule) points outward.
         let mut f = |a: u32, b: u32, c: u32| s.faces.push(Face::new(a, c, b));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 
@@ -155,7 +214,11 @@ mod tests {
         let mp = compute(&cube(0.5), 1.0);
         assert!((mp.volume - 1.0).abs() < 1e-9, "volume {}", mp.volume);
         assert!((mp.mass - 1.0).abs() < 1e-9);
-        assert!(mp.center_of_mass.length() < 1e-9, "com {:?}", mp.center_of_mass);
+        assert!(
+            mp.center_of_mass.length() < 1e-9,
+            "com {:?}",
+            mp.center_of_mass
+        );
     }
 
     #[test]
@@ -164,12 +227,36 @@ mod tests {
         let s = 2.0;
         let mp = compute(&cube(s / 2.0), 1.0);
         let expected = mp.mass * s * s / 6.0;
-        assert!((mp.inertia_com.cols[0].x - expected).abs() < 1e-6, "Ixx {}", mp.inertia_com.cols[0].x);
-        assert!((mp.inertia_com.cols[1].y - expected).abs() < 1e-6, "Iyy {}", mp.inertia_com.cols[1].y);
-        assert!((mp.inertia_com.cols[2].z - expected).abs() < 1e-6, "Izz {}", mp.inertia_com.cols[2].z);
-        assert!(mp.inertia_com.cols[1].x.abs() < 1e-6, "Ixy {}", mp.inertia_com.cols[1].x);
-        assert!(mp.inertia_com.cols[2].x.abs() < 1e-6, "Ixz {}", mp.inertia_com.cols[2].x);
-        assert!(mp.inertia_com.cols[2].y.abs() < 1e-6, "Iyz {}", mp.inertia_com.cols[2].y);
+        assert!(
+            (mp.inertia_com.cols[0].x - expected).abs() < 1e-6,
+            "Ixx {}",
+            mp.inertia_com.cols[0].x
+        );
+        assert!(
+            (mp.inertia_com.cols[1].y - expected).abs() < 1e-6,
+            "Iyy {}",
+            mp.inertia_com.cols[1].y
+        );
+        assert!(
+            (mp.inertia_com.cols[2].z - expected).abs() < 1e-6,
+            "Izz {}",
+            mp.inertia_com.cols[2].z
+        );
+        assert!(
+            mp.inertia_com.cols[1].x.abs() < 1e-6,
+            "Ixy {}",
+            mp.inertia_com.cols[1].x
+        );
+        assert!(
+            mp.inertia_com.cols[2].x.abs() < 1e-6,
+            "Ixz {}",
+            mp.inertia_com.cols[2].x
+        );
+        assert!(
+            mp.inertia_com.cols[2].y.abs() < 1e-6,
+            "Iyz {}",
+            mp.inertia_com.cols[2].y
+        );
     }
 
     #[test]

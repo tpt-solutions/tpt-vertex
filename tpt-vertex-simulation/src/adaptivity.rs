@@ -35,12 +35,8 @@ pub struct ElementError {
 /// the error estimate.
 ///
 /// Returns per-element errors sorted by magnitude (descending).
-pub fn zz_error_estimator(
-    vol: &VolMesh,
-    e: f64,
-    nu: f64,
-    u: &[f64],
-) -> Vec<ElementError> {
+#[allow(clippy::needless_range_loop)] // fixed-size 6-component stress-vector indexing is clearest with range loops
+pub fn zz_error_estimator(vol: &VolMesh, e: f64, nu: f64, u: &[f64]) -> Vec<ElementError> {
     let n_tets = vol.tet_count();
     let n_nodes = vol.node_count();
 
@@ -116,11 +112,19 @@ pub fn zz_error_estimator(
             let ref_norm = ref_sq.sqrt().max(1e-12);
             let relative_error = error / ref_norm;
 
-            ElementError { element: t, error, relative_error }
+            ElementError {
+                element: t,
+                error,
+                relative_error,
+            }
         })
         .collect();
 
-    errors.sort_by(|a, b| b.error.partial_cmp(&a.error).unwrap_or(std::cmp::Ordering::Equal));
+    errors.sort_by(|a, b| {
+        b.error
+            .partial_cmp(&a.error)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     errors
 }
 
@@ -148,7 +152,8 @@ pub fn refine_mesh(vol: &VolMesh, marked: &[usize]) -> VolMesh {
     }
 
     // Build edge-to-elements adjacency.
-    let mut edge_map: std::collections::HashMap<(usize, usize), Vec<usize>> = std::collections::HashMap::new();
+    let mut edge_map: std::collections::HashMap<(usize, usize), Vec<usize>> =
+        std::collections::HashMap::new();
     for (t, tet) in vol.tets.iter().enumerate() {
         let edges = tet_edges(tet);
         for e in &edges {
@@ -157,7 +162,8 @@ pub fn refine_mesh(vol: &VolMesh, marked: &[usize]) -> VolMesh {
     }
 
     // Find all edges that need splitting: edges of marked elements.
-    let mut split_edges: std::collections::HashSet<(usize, usize)> = std::collections::HashSet::new();
+    let mut split_edges: std::collections::HashSet<(usize, usize)> =
+        std::collections::HashSet::new();
     for &t in marked {
         let tet = vol.tets[t];
         for e in tet_edges(&tet) {
@@ -183,7 +189,8 @@ pub fn refine_mesh(vol: &VolMesh, marked: &[usize]) -> VolMesh {
 
     // Create midpoint nodes for each split edge.
     let mut new_nodes = vol.nodes.clone();
-    let mut edge_midpoint: std::collections::HashMap<(usize, usize), usize> = std::collections::HashMap::new();
+    let mut edge_midpoint: std::collections::HashMap<(usize, usize), usize> =
+        std::collections::HashMap::new();
     for &(a, b) in &split_edges {
         let mid = [
             (vol.nodes[a][0] + vol.nodes[b][0]) / 2.0,
@@ -200,7 +207,7 @@ pub fn refine_mesh(vol: &VolMesh, marked: &[usize]) -> VolMesh {
     // Split each tet. If it has any split edge, bisect along the longest
     // split edge. Otherwise, keep it as-is.
     let mut new_tets = Vec::new();
-    for (_t, tet) in vol.tets.iter().enumerate() {
+    for tet in vol.tets.iter() {
         let edges = tet_edges(tet);
         let has_split = edges.iter().any(|e| split_edges.contains(e));
 
@@ -226,10 +233,7 @@ pub fn refine_mesh(vol: &VolMesh, marked: &[usize]) -> VolMesh {
         // Bisect: split the tet into two by replacing the two non-edge
         // vertices with the midpoint.
         let (a, b) = best_edge;
-        let others: Vec<usize> = tet.iter()
-            .filter(|&&n| n != a && n != b)
-            .copied()
-            .collect();
+        let others: Vec<usize> = tet.iter().filter(|&&n| n != a && n != b).copied().collect();
 
         if others.len() == 2 {
             let (c, d) = (others[0], others[1]);
@@ -242,7 +246,10 @@ pub fn refine_mesh(vol: &VolMesh, marked: &[usize]) -> VolMesh {
         }
     }
 
-    VolMesh { nodes: new_nodes, tets: new_tets }
+    VolMesh {
+        nodes: new_nodes,
+        tets: new_tets,
+    }
 }
 
 /// Get the 6 edges of a tetrahedron as sorted (min, max) pairs.
@@ -288,7 +295,10 @@ pub fn adaptive_refine(
         let errors = zz_error_estimator(&vol, e, nu, &u);
         history.push(errors.clone());
 
-        let max_rel = errors.iter().map(|e| e.relative_error).fold(0.0f64, f64::max);
+        let max_rel = errors
+            .iter()
+            .map(|e| e.relative_error)
+            .fold(0.0f64, f64::max);
         if max_rel <= tolerance {
             break;
         }
@@ -306,17 +316,25 @@ pub fn adaptive_refine(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::material::elastic_matrix;
 
     fn cube() -> VolMesh {
         let nodes = vec![
-            [-1.0, -1.0, -1.0], [1.0, -1.0, -1.0], [1.0, 1.0, -1.0], [-1.0, 1.0, -1.0],
-            [-1.0, -1.0, 1.0], [1.0, -1.0, 1.0], [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0],
+            [-1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [-1.0, 1.0, 1.0],
         ];
         // Simple 5-tet decomposition of the cube.
         let tets = vec![
-            [0, 1, 2, 6], [0, 1, 5, 6], [0, 2, 3, 6],
-            [0, 3, 7, 6], [0, 5, 7, 6],
+            [0, 1, 2, 6],
+            [0, 1, 5, 6],
+            [0, 2, 3, 6],
+            [0, 3, 7, 6],
+            [0, 5, 7, 6],
         ];
         VolMesh { nodes, tets }
     }
@@ -326,7 +344,6 @@ mod tests {
         let vol = cube();
         let e = 200_000.0;
         let nu = 0.3;
-        let d = elastic_matrix(e, nu);
         // Solve a trivial system (no loads, no fixed nodes — zero solution).
         let n_dofs = vol.node_count() * 3;
         let u = vec![0.0; n_dofs];
@@ -337,9 +354,21 @@ mod tests {
     #[test]
     fn mark_elements_selects_high_error() {
         let errors = vec![
-            ElementError { element: 0, error: 10.0, relative_error: 0.5 },
-            ElementError { element: 1, error: 1.0, relative_error: 0.01 },
-            ElementError { element: 2, error: 5.0, relative_error: 0.2 },
+            ElementError {
+                element: 0,
+                error: 10.0,
+                relative_error: 0.5,
+            },
+            ElementError {
+                element: 1,
+                error: 1.0,
+                relative_error: 0.01,
+            },
+            ElementError {
+                element: 2,
+                error: 5.0,
+                relative_error: 0.2,
+            },
         ];
         let marked = mark_elements(&errors, 0.1);
         assert!(marked.contains(&0));

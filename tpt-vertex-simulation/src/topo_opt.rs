@@ -87,9 +87,16 @@ pub fn topo_optimize(
     let mut rho = vec![config.volume_fraction; n_tets];
 
     // Element volumes.
-    let elem_vols: Vec<f64> = vol.tets.iter()
+    let elem_vols: Vec<f64> = vol
+        .tets
+        .iter()
         .map(|tet| {
-            let nodes = [vol.nodes[tet[0]], vol.nodes[tet[1]], vol.nodes[tet[2]], vol.nodes[tet[3]]];
+            let nodes = [
+                vol.nodes[tet[0]],
+                vol.nodes[tet[1]],
+                vol.nodes[tet[2]],
+                vol.nodes[tet[3]],
+            ];
             crate::element::tet_volume(&nodes).abs()
         })
         .collect();
@@ -111,16 +118,26 @@ pub fn topo_optimize(
         let mut k = vec![0.0; n_dofs * n_dofs];
         for (t, tet) in vol.tets.iter().enumerate() {
             let nodes = [
-                vol.nodes[tet[0]], vol.nodes[tet[1]],
-                vol.nodes[tet[2]], vol.nodes[tet[3]],
+                vol.nodes[tet[0]],
+                vol.nodes[tet[1]],
+                vol.nodes[tet[2]],
+                vol.nodes[tet[3]],
             ];
             let d_penal = penalized_matrix(&d, rho[t], config.penal);
             let ke = tet_stiffness(&nodes, &d_penal);
             let gdof = [
-                GlobalSystem::dof(tet[0], 0), GlobalSystem::dof(tet[0], 1), GlobalSystem::dof(tet[0], 2),
-                GlobalSystem::dof(tet[1], 0), GlobalSystem::dof(tet[1], 1), GlobalSystem::dof(tet[1], 2),
-                GlobalSystem::dof(tet[2], 0), GlobalSystem::dof(tet[2], 1), GlobalSystem::dof(tet[2], 2),
-                GlobalSystem::dof(tet[3], 0), GlobalSystem::dof(tet[3], 1), GlobalSystem::dof(tet[3], 2),
+                GlobalSystem::dof(tet[0], 0),
+                GlobalSystem::dof(tet[0], 1),
+                GlobalSystem::dof(tet[0], 2),
+                GlobalSystem::dof(tet[1], 0),
+                GlobalSystem::dof(tet[1], 1),
+                GlobalSystem::dof(tet[1], 2),
+                GlobalSystem::dof(tet[2], 0),
+                GlobalSystem::dof(tet[2], 1),
+                GlobalSystem::dof(tet[2], 2),
+                GlobalSystem::dof(tet[3], 0),
+                GlobalSystem::dof(tet[3], 1),
+                GlobalSystem::dof(tet[3], 2),
             ];
             for i in 0..12 {
                 for j in 0..12 {
@@ -163,8 +180,10 @@ pub fn topo_optimize(
 
         for (t, tet) in vol.tets.iter().enumerate() {
             let nodes = [
-                vol.nodes[tet[0]], vol.nodes[tet[1]],
-                vol.nodes[tet[2]], vol.nodes[tet[3]],
+                vol.nodes[tet[0]],
+                vol.nodes[tet[1]],
+                vol.nodes[tet[2]],
+                vol.nodes[tet[3]],
             ];
             let d_penal = penalized_matrix(&d, rho[t], config.penal);
             let ke = tet_stiffness(&nodes, &d_penal);
@@ -211,7 +230,9 @@ pub fn topo_optimize(
         let rho_new = oc_update(&rho, &sensitivities, &elem_vols, target_vol, config);
 
         // 6. Convergence check.
-        let change: f64 = rho.iter().zip(rho_new.iter())
+        let change: f64 = rho
+            .iter()
+            .zip(rho_new.iter())
             .map(|(r, rn)| (r - rn).abs())
             .fold(0.0, f64::max);
 
@@ -236,9 +257,9 @@ pub fn topo_optimize(
 fn penalized_matrix(d: &[[f64; 6]; 6], rho: f64, penal: f64) -> [[f64; 6]; 6] {
     let factor = rho.powf(penal);
     let mut dp = *d;
-    for i in 0..6 {
-        for j in 0..6 {
-            dp[i][j] *= factor;
+    for row in dp.iter_mut() {
+        for v in row.iter_mut() {
+            *v *= factor;
         }
     }
     dp
@@ -249,20 +270,24 @@ fn penalized_matrix(d: &[[f64; 6]; 6], rho: f64, penal: f64) -> [[f64; 6]; 6] {
 /// `(j, w)` pairs where `w` is the distance-based weight.
 fn compute_filter_weights(vol: &VolMesh, radius: f64) -> Option<Vec<Vec<(usize, f64)>>> {
     // Element centroids.
-    let centroids: Vec<[f64; 3]> = vol.tets.iter().map(|tet| {
-        let n0 = vol.nodes[tet[0]];
-        let n1 = vol.nodes[tet[1]];
-        let n2 = vol.nodes[tet[2]];
-        let n3 = vol.nodes[tet[3]];
-        [
-            (n0[0] + n1[0] + n2[0] + n3[0]) / 4.0,
-            (n0[1] + n1[1] + n2[1] + n3[1]) / 4.0,
-            (n0[2] + n1[2] + n2[2] + n3[2]) / 4.0,
-        ]
-    }).collect();
+    let centroids: Vec<[f64; 3]> = vol
+        .tets
+        .iter()
+        .map(|tet| {
+            let n0 = vol.nodes[tet[0]];
+            let n1 = vol.nodes[tet[1]];
+            let n2 = vol.nodes[tet[2]];
+            let n3 = vol.nodes[tet[3]];
+            [
+                (n0[0] + n1[0] + n2[0] + n3[0]) / 4.0,
+                (n0[1] + n1[1] + n2[1] + n3[1]) / 4.0,
+                (n0[2] + n1[2] + n2[2] + n3[2]) / 4.0,
+            ]
+        })
+        .collect();
 
     let mut weights = Vec::new();
-    for (_i, ci) in centroids.iter().enumerate() {
+    for ci in centroids.iter() {
         let mut row = Vec::new();
         for (j, cj) in centroids.iter().enumerate() {
             let dx = ci[0] - cj[0];
@@ -292,20 +317,23 @@ fn compute_filter_weights(vol: &VolMesh, radius: f64) -> Option<Vec<Vec<(usize, 
 /// magnitude *larger* than the original at a local sign-alternating point,
 /// the opposite of smoothing.
 fn apply_filter(sens: &[f64], weights: &[Vec<(usize, f64)>]) -> Vec<f64> {
-    sens.iter().enumerate().map(|(i, si)| {
-        let row = &weights[i];
-        let mut num = 0.0;
-        let mut den = 0.0;
-        for &(j, w) in row {
-            num += w * sens[j];
-            den += w;
-        }
-        if den > 1e-12 {
-            num / den
-        } else {
-            *si
-        }
-    }).collect()
+    sens.iter()
+        .enumerate()
+        .map(|(i, si)| {
+            let row = &weights[i];
+            let mut num = 0.0;
+            let mut den = 0.0;
+            for &(j, w) in row {
+                num += w * sens[j];
+                den += w;
+            }
+            if den > 1e-12 {
+                num / den
+            } else {
+                *si
+            }
+        })
+        .collect()
 }
 
 /// Optimality criteria (OC) density update.
@@ -325,11 +353,13 @@ fn oc_update(
 
     for _ in 0..50 {
         lambda = (lambda_min + lambda_max) / 2.0;
-        let vol_sum: f64 = (0..n).map(|i| {
-            let mut r = rho[i] * (-sensitivities[i] / lambda).sqrt();
-            r = r.max(config.move_limit).min(1.0).max(0.0);
-            r * elem_vols[i]
-        }).sum();
+        let vol_sum: f64 = (0..n)
+            .map(|i| {
+                let mut r = rho[i] * (-sensitivities[i] / lambda).sqrt();
+                r = r.max(config.move_limit).clamp(0.0, 1.0);
+                r * elem_vols[i]
+            })
+            .sum();
 
         if vol_sum > target_vol {
             lambda_min = lambda;
@@ -339,11 +369,13 @@ fn oc_update(
     }
 
     // Final OC update.
-    (0..n).map(|i| {
-        let mut r = rho[i] * (-sensitivities[i] / lambda).sqrt();
-        r = r.max(config.move_limit).min(1.0).max(0.0);
-        r
-    }).collect()
+    (0..n)
+        .map(|i| {
+            let mut r = rho[i] * (-sensitivities[i] / lambda).sqrt();
+            r = r.max(config.move_limit).clamp(0.0, 1.0);
+            r
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -353,12 +385,21 @@ mod tests {
     fn beam_mesh() -> VolMesh {
         // Simple 2×1×1 beam mesh (8 nodes, 5 tets).
         let nodes = vec![
-            [0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [2.0, 1.0, 0.0], [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0], [2.0, 0.0, 1.0], [2.0, 1.0, 1.0], [0.0, 1.0, 1.0],
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [2.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [2.0, 0.0, 1.0],
+            [2.0, 1.0, 1.0],
+            [0.0, 1.0, 1.0],
         ];
         let tets = vec![
-            [0, 1, 2, 6], [0, 1, 5, 6], [0, 2, 3, 6],
-            [0, 3, 7, 6], [0, 5, 7, 6],
+            [0, 1, 2, 6],
+            [0, 1, 5, 6],
+            [0, 2, 3, 6],
+            [0, 3, 7, 6],
+            [0, 5, 7, 6],
         ];
         VolMesh { nodes, tets }
     }
@@ -368,7 +409,12 @@ mod tests {
         let vol = beam_mesh();
         let bc = BoundaryCondition::new()
             .fix_node(0)
-            .with_load(crate::bc::PointLoad { node: 6, fx: 0.0, fy: -100.0, fz: 0.0 });
+            .with_load(crate::bc::PointLoad {
+                node: 6,
+                fx: 0.0,
+                fy: -100.0,
+                fz: 0.0,
+            });
         let config = TopoOptConfig {
             volume_fraction: 0.5,
             penal: 3.0,
@@ -380,7 +426,10 @@ mod tests {
         let result = topo_optimize(&vol, 200_000.0, 0.3, &bc, &config);
         // Densities should not all be at the initial value.
         let avg_rho: f64 = result.densities.iter().sum::<f64>() / result.densities.len() as f64;
-        assert!(avg_rho < config.volume_fraction + 0.1, "average density {avg_rho}");
+        assert!(
+            avg_rho < config.volume_fraction + 0.1,
+            "average density {avg_rho}"
+        );
         assert!(!result.history.is_empty());
     }
 
@@ -389,7 +438,10 @@ mod tests {
         let d = elastic_matrix(200_000.0, 0.3);
         let d1 = penalized_matrix(&d, 0.5, 3.0);
         let d2 = penalized_matrix(&d, 1.0, 3.0);
-        assert!((d1[0][0] / d2[0][0] - 0.125).abs() < 1e-9, "ρ=0.5 should give 0.125×");
+        assert!(
+            (d1[0][0] / d2[0][0] - 0.125).abs() < 1e-9,
+            "ρ=0.5 should give 0.125×"
+        );
     }
 
     #[test]

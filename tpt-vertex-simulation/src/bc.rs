@@ -68,7 +68,12 @@ mod tests {
             .fix_node(3)
             .fix_node(3)
             .fix_node(7)
-            .with_load(PointLoad { node: 1, fx: 0.0, fy: -10.0, fz: 0.0 });
+            .with_load(PointLoad {
+                node: 1,
+                fx: 0.0,
+                fy: -10.0,
+                fz: 0.0,
+            });
         assert_eq!(bc.fixed_nodes.len(), 2);
         assert!(bc.is_fixed(7));
         assert!(!bc.is_fixed(0));

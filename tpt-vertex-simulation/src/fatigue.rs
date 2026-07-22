@@ -105,7 +105,11 @@ pub fn miner_damage(cycles: &[LoadCycle], sn: &SnCurve, uts: f64) -> (f64, f64) 
             damage += c.count / n;
         }
     }
-    let life = if damage > 0.0 { 1.0 / damage } else { f64::INFINITY };
+    let life = if damage > 0.0 {
+        1.0 / damage
+    } else {
+        f64::INFINITY
+    };
     (damage, life)
 }
 
@@ -126,7 +130,11 @@ pub fn sn_from_material(mat: &Material) -> SnCurve {
     };
     let endurance = uts * endurance_fraction * 2.0; // ×2 because S-N uses range
     let c = uts.powf(m) * 1.0; // normalized: at σ_range = UTS, N ≈ 1
-    SnCurve { m, c, endurance_limit: endurance }
+    SnCurve {
+        m,
+        c,
+        endurance_limit: endurance,
+    }
 }
 
 /// Result of a fatigue assessment on a mesh.
@@ -146,14 +154,22 @@ mod tests {
 
     #[test]
     fn sn_curve_infinite_life_below_endurance() {
-        let sn = SnCurve { m: 3.0, c: 1e12, endurance_limit: 500.0 };
+        let sn = SnCurve {
+            m: 3.0,
+            c: 1e12,
+            endurance_limit: 500.0,
+        };
         assert!(sn.life(400.0).is_infinite());
         assert!(sn.life(600.0).is_finite());
     }
 
     #[test]
     fn sn_curve_decreasing_life_with_increasing_stress() {
-        let sn = SnCurve { m: 3.0, c: 1e12, endurance_limit: 0.0 };
+        let sn = SnCurve {
+            m: 3.0,
+            c: 1e12,
+            endurance_limit: 0.0,
+        };
         let n1 = sn.life(500.0);
         let n2 = sn.life(1000.0);
         assert!(n1 > n2);
@@ -177,9 +193,17 @@ mod tests {
 
     #[test]
     fn miner_zero_damage_infinite_life() {
-        let sn = SnCurve { m: 3.0, c: 1e12, endurance_limit: 500.0 };
+        let sn = SnCurve {
+            m: 3.0,
+            c: 1e12,
+            endurance_limit: 500.0,
+        };
         // All cycles below endurance limit.
-        let cycles = vec![LoadCycle { range: 400.0, mean: 0.0, count: 1000.0 }];
+        let cycles = vec![LoadCycle {
+            range: 400.0,
+            mean: 0.0,
+            count: 1000.0,
+        }];
         let (d, life) = miner_damage(&cycles, &sn, 500.0);
         assert!(d == 0.0);
         assert!(life.is_infinite());
@@ -187,10 +211,22 @@ mod tests {
 
     #[test]
     fn miner_accumulates_damage() {
-        let sn = SnCurve { m: 3.0, c: 1e12, endurance_limit: 0.0 };
+        let sn = SnCurve {
+            m: 3.0,
+            c: 1e12,
+            endurance_limit: 0.0,
+        };
         let cycles = vec![
-            LoadCycle { range: 1000.0, mean: 0.0, count: 100.0 },
-            LoadCycle { range: 1000.0, mean: 0.0, count: 100.0 },
+            LoadCycle {
+                range: 1000.0,
+                mean: 0.0,
+                count: 100.0,
+            },
+            LoadCycle {
+                range: 1000.0,
+                mean: 0.0,
+                count: 100.0,
+            },
         ];
         let (d, _) = miner_damage(&cycles, &sn, 500.0);
         // Each cycle: N = 1e12 / 1e9 = 1000. Two sets of 100: D = 100/1000 + 100/1000 = 0.2.

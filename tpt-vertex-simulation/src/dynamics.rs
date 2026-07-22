@@ -207,7 +207,11 @@ pub fn step_hinge(
 }
 
 fn mat3_mul(a: Mat3, b: Mat3) -> Mat3 {
-    Mat3::from_cols(a.mul_vec(b.cols[0]), a.mul_vec(b.cols[1]), a.mul_vec(b.cols[2]))
+    Mat3::from_cols(
+        a.mul_vec(b.cols[0]),
+        a.mul_vec(b.cols[1]),
+        a.mul_vec(b.cols[2]),
+    )
 }
 
 /// Invert a `Mat3` (returns the identity if singular; callers only invoke
@@ -268,7 +272,8 @@ mod tests {
     }
     impl Negligible for MassProperties {
         fn with_negligible_inertia(mut self) -> Self {
-            self.inertia_com = Mat3::from_row_major([1e-9, 0.0, 0.0, 0.0, 1e-9, 0.0, 0.0, 0.0, 1e-9]);
+            self.inertia_com =
+                Mat3::from_row_major([1e-9, 0.0, 0.0, 0.0, 1e-9, 0.0, 0.0, 0.0, 1e-9]);
             self
         }
     }

@@ -24,7 +24,7 @@ use crate::bc::BoundaryCondition;
 use crate::element::{strain_displacement, tet_volume};
 use crate::material::elastic_matrix;
 use crate::mesh::VolMesh;
-use crate::plasticity::{HardeningLaw, IntegrationPointState, radial_return};
+use crate::plasticity::{radial_return, HardeningLaw, IntegrationPointState};
 use crate::solve::solve_dense;
 
 /// Convergence tolerances for the Newton-Raphson iteration.
@@ -116,7 +116,8 @@ pub fn nonlinear_solve(
     // Current displacement state.
     let mut u = vec![0.0; n_dofs];
     // Accumulated element states (plastic strain per element).
-    let mut ip_states: Vec<IntegrationPointState> = vec![IntegrationPointState::default(); vol.tet_count()];
+    let mut ip_states: Vec<IntegrationPointState> =
+        vec![IntegrationPointState::default(); vol.tet_count()];
     // Current node positions (updated for geometric nonlinearity).
     let mut current_nodes = vol.nodes.clone();
 
@@ -141,7 +142,14 @@ pub fn nonlinear_solve(
             // arbitrary combination of them on top of the real solution and
             // the Newton iteration diverges instead of converging.
             let (k_tangent, f_int) = assemble_constrained_tangent(
-                vol, &current_nodes, e, nu, &u, material, &mut ip_states, bc,
+                vol,
+                &current_nodes,
+                e,
+                nu,
+                &u,
+                material,
+                &mut ip_states,
+                bc,
             );
 
             // 2. External force vector (scaled by load factor).
@@ -235,9 +243,10 @@ pub fn nonlinear_solve(
 ///
 /// The tangent stiffness includes both material and geometric contributions:
 /// `K_T = K_mat + K_geo`.
+#[allow(clippy::needless_range_loop)] // fixed-size 6x6/12x12 matrix indexing is clearest with range loops
 fn assemble_tangent_and_internal_force(
     vol: &VolMesh,
-    current_nodes: &Vec<[f64; 3]>,
+    current_nodes: &[[f64; 3]],
     e: f64,
     nu: f64,
     u: &[f64],
@@ -296,7 +305,10 @@ fn assemble_tangent_and_internal_force(
                 }
                 (sigma, 0.0)
             }
-            NonlinearMaterial::J2Plasticity { sigma_y0, hardening } => {
+            NonlinearMaterial::J2Plasticity {
+                sigma_y0,
+                hardening,
+            } => {
                 let mut trial = [0.0; 6];
                 for i in 0..6 {
                     for j in 0..6 {
@@ -304,7 +316,14 @@ fn assemble_tangent_and_internal_force(
                     }
                 }
                 let (sigma_corr, new_eps_p, alpha) = radial_return(
-                    trial, ip_states[t].eps_p, e, nu, *sigma_y0, hardening, 1e-8, 50,
+                    trial,
+                    ip_states[t].eps_p,
+                    e,
+                    nu,
+                    *sigma_y0,
+                    hardening,
+                    1e-8,
+                    50,
                 );
                 ip_states[t].eps_p = new_eps_p;
                 (sigma_corr, alpha)
@@ -371,10 +390,18 @@ fn assemble_tangent_and_internal_force(
 
         // Scatter to global.
         let gdof = [
-            GlobalSystem::dof(tet[0], 0), GlobalSystem::dof(tet[0], 1), GlobalSystem::dof(tet[0], 2),
-            GlobalSystem::dof(tet[1], 0), GlobalSystem::dof(tet[1], 1), GlobalSystem::dof(tet[1], 2),
-            GlobalSystem::dof(tet[2], 0), GlobalSystem::dof(tet[2], 1), GlobalSystem::dof(tet[2], 2),
-            GlobalSystem::dof(tet[3], 0), GlobalSystem::dof(tet[3], 1), GlobalSystem::dof(tet[3], 2),
+            GlobalSystem::dof(tet[0], 0),
+            GlobalSystem::dof(tet[0], 1),
+            GlobalSystem::dof(tet[0], 2),
+            GlobalSystem::dof(tet[1], 0),
+            GlobalSystem::dof(tet[1], 1),
+            GlobalSystem::dof(tet[1], 2),
+            GlobalSystem::dof(tet[2], 0),
+            GlobalSystem::dof(tet[2], 1),
+            GlobalSystem::dof(tet[2], 2),
+            GlobalSystem::dof(tet[3], 0),
+            GlobalSystem::dof(tet[3], 1),
+            GlobalSystem::dof(tet[3], 2),
         ];
         for i in 0..12 {
             f_int[gdof[i]] += f_int_e[i];
@@ -409,9 +436,10 @@ fn assemble_external_force(vol: &VolMesh, bc: &BoundaryCondition, load_factor: f
 }
 
 /// Assemble tangent stiffness with penalty constraints (convenience wrapper).
+#[allow(clippy::too_many_arguments)] // mirrors the FEA material/BC parameter set used throughout this crate
 pub fn assemble_constrained_tangent(
     vol: &VolMesh,
-    current_nodes: &Vec<[f64; 3]>,
+    current_nodes: &[[f64; 3]],
     e: f64,
     nu: f64,
     u: &[f64],
@@ -420,9 +448,8 @@ pub fn assemble_constrained_tangent(
     bc: &BoundaryCondition,
 ) -> (Vec<f64>, Vec<f64>) {
     let n_dofs = vol.node_count() * 3;
-    let (mut k, f_int) = assemble_tangent_and_internal_force(
-        vol, current_nodes, e, nu, u, material, ip_states,
-    );
+    let (mut k, f_int) =
+        assemble_tangent_and_internal_force(vol, current_nodes, e, nu, u, material, ip_states);
 
     // Apply penalty constraints.
     let mut kmax: f64 = 0.0;
@@ -448,10 +475,16 @@ pub fn assemble_constrained_tangent(
 mod tests {
     use super::*;
 
-    pub(super) fn cube() -> VolMesh {
+    fn cube() -> VolMesh {
         let nodes = vec![
-            [-1.0, -1.0, -1.0], [1.0, -1.0, -1.0], [1.0, 1.0, -1.0], [-1.0, 1.0, -1.0],
-            [-1.0, -1.0, 1.0], [1.0, -1.0, 1.0], [1.0, 1.0, 1.0], [-1.0, 1.0, 1.0],
+            [-1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [-1.0, 1.0, 1.0],
         ];
         // Standard 6-tet Kuhn triangulation sharing diagonal (0,6) — see
         // mesh::tetrahedralize for why a 5-tet list sharing this diagonal
@@ -459,8 +492,12 @@ mod tests {
         // referenced by no tet at all, so its stiffness rows/columns are
         // all zero and the global system is singular.
         let tets = vec![
-            [0, 1, 2, 6], [0, 2, 3, 6], [0, 3, 7, 6],
-            [0, 7, 4, 6], [0, 4, 5, 6], [0, 5, 1, 6],
+            [0, 1, 2, 6],
+            [0, 2, 3, 6],
+            [0, 3, 7, 6],
+            [0, 7, 4, 6],
+            [0, 4, 5, 6],
+            [0, 5, 1, 6],
         ];
         VolMesh { nodes, tets }
     }
@@ -474,7 +511,12 @@ mod tests {
         // makes the global tangent stiffness singular.
         let bc = BoundaryCondition::new()
             .fix_all(&[0, 3, 4, 7])
-            .with_load(crate::bc::PointLoad { node: 6, fx: 100.0, fy: 0.0, fz: 0.0 });
+            .with_load(crate::bc::PointLoad {
+                node: 6,
+                fx: 100.0,
+                fy: 0.0,
+                fz: 0.0,
+            });
         let mat = NonlinearMaterial::Linear;
         let tol = NonlinearTolerance::default();
         let result = nonlinear_solve(&vol, 200_000.0, 0.3, &bc, &mat, 1, &tol);
@@ -488,12 +530,22 @@ mod tests {
         let vol = cube();
         let bc = BoundaryCondition::new()
             .fix_all(&[0, 3, 4, 7])
-            .with_load(crate::bc::PointLoad { node: 6, fx: 500.0, fy: 0.0, fz: 0.0 });
+            .with_load(crate::bc::PointLoad {
+                node: 6,
+                fx: 500.0,
+                fy: 0.0,
+                fz: 0.0,
+            });
         let mat = NonlinearMaterial::J2Plasticity {
             sigma_y0: 250.0,
-            hardening: HardeningLaw::Linear { hardening_modulus: 1000.0 },
+            hardening: HardeningLaw::Linear {
+                hardening_modulus: 1000.0,
+            },
         };
-        let tol = NonlinearTolerance { max_iter: 100, ..Default::default() };
+        let tol = NonlinearTolerance {
+            max_iter: 100,
+            ..Default::default()
+        };
         let result = nonlinear_solve(&vol, 200_000.0, 0.3, &bc, &mat, 10, &tol);
         assert!(result.converged, "should converge with subincrementation");
     }
@@ -506,7 +558,12 @@ mod tests {
         let vol = cube();
         let bc = BoundaryCondition::new()
             .fix_all(&[0, 3, 4, 7])
-            .with_load(crate::bc::PointLoad { node: 6, fx: 100.0, fy: 0.0, fz: 0.0 });
+            .with_load(crate::bc::PointLoad {
+                node: 6,
+                fx: 100.0,
+                fy: 0.0,
+                fz: 0.0,
+            });
 
         let mat = NonlinearMaterial::Linear;
         let tol = NonlinearTolerance::default();
@@ -515,25 +572,5 @@ mod tests {
         // The geometric stiffness should modify the result.
         assert!(linear.converged);
         assert!(linear.total_iterations >= 1);
-    }
-}
-
-#[cfg(test)]
-mod debug_nl {
-    use super::*;
-    use super::tests::cube;
-    #[test]
-    fn debug_linear() {
-        let vol = cube();
-        let bc = BoundaryCondition::new()
-            .fix_all(&[0, 3, 4, 7])
-            .with_load(crate::bc::PointLoad { node: 6, fx: 100.0, fy: 0.0, fz: 0.0 });
-        let mat = NonlinearMaterial::Linear;
-        let tol = NonlinearTolerance::default();
-        let result = nonlinear_solve(&vol, 200_000.0, 0.3, &bc, &mat, 1, &tol);
-        for h in &result.history {
-            println!("{:?}", h);
-        }
-        println!("converged={} max_disp={}", result.converged, result.max_displacement);
     }
 }

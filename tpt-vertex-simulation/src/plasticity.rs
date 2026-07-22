@@ -105,6 +105,7 @@ pub struct StressState {
 /// The consistent tangent factor `α` is used to modify the material
 /// tangent: `D_ct = D - α * n⊗n` where `n` is the deviatoric stress
 /// direction.
+#[allow(clippy::too_many_arguments)] // mirrors the FEA material parameter set used throughout this crate
 pub fn radial_return(
     sigma_trial: [f64; 6],
     eps_p: f64,
@@ -127,8 +128,11 @@ pub fn radial_return(
     ];
 
     // Von Mises equivalent stress: sqrt(3/2 * s_dev : s_dev).
-    let j2 = 0.5 * (s_dev[0] * s_dev[0] + s_dev[1] * s_dev[1] + s_dev[2] * s_dev[2]
-        + 2.0 * (s_dev[3] * s_dev[3] + s_dev[4] * s_dev[4] + s_dev[5] * s_dev[5]));
+    let j2 = 0.5
+        * (s_dev[0] * s_dev[0]
+            + s_dev[1] * s_dev[1]
+            + s_dev[2] * s_dev[2]
+            + 2.0 * (s_dev[3] * s_dev[3] + s_dev[4] * s_dev[4] + s_dev[5] * s_dev[5]));
     let sigma_eq = (3.0 * j2).sqrt();
 
     let sy = hardening.yield_stress(sigma_y0, eps_p);
@@ -199,6 +203,8 @@ pub fn radial_return(
 /// the integration point states, and the hardening law, computes:
 /// - `f_int`: internal force vector (equivalent to `∫ B^T σ dV`)
 /// - `k_ep`: elastoplastic tangent stiffness (for the global tangent matrix)
+#[allow(clippy::too_many_arguments)] // mirrors the FEA material parameter set used throughout this crate
+#[allow(clippy::needless_range_loop)] // fixed-size 6x6/12x12 matrix indexing is clearest with range loops
 pub fn element_nonlinear_force_and_tangent(
     nodes_lin: &[[f64; 3]; 4],
     u_e: &[f64],
@@ -242,9 +248,8 @@ pub fn element_nonlinear_force_and_tangent(
 
     // Radial return.
     let ip = &mut ip_states[0];
-    let (sigma_corr, new_eps_p, alpha) = radial_return(
-        sigma_trial, ip.eps_p, e, nu, sigma_y0, hardening, 1e-8, 50,
-    );
+    let (sigma_corr, new_eps_p, alpha) =
+        radial_return(sigma_trial, ip.eps_p, e, nu, sigma_y0, hardening, 1e-8, 50);
     ip.eps_p = new_eps_p;
 
     // Internal force: f_int = V * B^T σ_corr.
@@ -303,7 +308,11 @@ fn sigma_eq_from_trial(sigma: [f64; 6]) -> f64 {
     let s0 = sigma[0] - sm;
     let s1 = sigma[1] - sm;
     let s2 = sigma[2] - sm;
-    let j2 = 0.5 * (s0*s0 + s1*s1 + s2*s2 + 2.0*(sigma[3]*sigma[3] + sigma[4]*sigma[4] + sigma[5]*sigma[5]));
+    let j2 = 0.5
+        * (s0 * s0
+            + s1 * s1
+            + s2 * s2
+            + 2.0 * (sigma[3] * sigma[3] + sigma[4] * sigma[4] + sigma[5] * sigma[5]));
     (3.0 * j2).sqrt()
 }
 
@@ -315,7 +324,16 @@ mod tests {
     fn elastic_region_no_plastic_flow() {
         let hardening = HardeningLaw::Perfect;
         let sigma_trial = [100.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let (sigma, eps_p, alpha) = radial_return(sigma_trial, 0.0, 200_000.0, 0.3, 250.0, &hardening, 1e-8, 50);
+        let (sigma, eps_p, alpha) = radial_return(
+            sigma_trial,
+            0.0,
+            200_000.0,
+            0.3,
+            250.0,
+            &hardening,
+            1e-8,
+            50,
+        );
         // sigma_eq = 100 < 250, so no plastic flow.
         assert!((sigma[0] - 100.0).abs() < 1e-9);
         assert!(eps_p < 1e-12);
@@ -328,7 +346,16 @@ mod tests {
         // Uniaxial tension above yield: σ_trial = [500, 0, 0, 0, 0, 0]
         // von Mises = 500 > 250 => plastic flow.
         let sigma_trial = [500.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let (sigma, eps_p, _alpha) = radial_return(sigma_trial, 0.0, 200_000.0, 0.3, 250.0, &hardening, 1e-8, 50);
+        let (sigma, eps_p, _alpha) = radial_return(
+            sigma_trial,
+            0.0,
+            200_000.0,
+            0.3,
+            250.0,
+            &hardening,
+            1e-8,
+            50,
+        );
         // After return, von Mises should be ≈ 250 (yield surface).
         let vm = sigma_eq_from_trial(sigma);
         assert!((vm - 250.0).abs() < 1.0, "von Mises after return: {vm}");
@@ -337,18 +364,40 @@ mod tests {
 
     #[test]
     fn linear_hardening_increases_yield() {
-        let hardening = HardeningLaw::Linear { hardening_modulus: 1000.0 };
+        let hardening = HardeningLaw::Linear {
+            hardening_modulus: 1000.0,
+        };
         let sigma_trial = [500.0, 0.0, 0.0, 0.0, 0.0, 0.0];
-        let (_, eps_p1, _) = radial_return(sigma_trial, 0.0, 200_000.0, 0.3, 250.0, &hardening, 1e-8, 50);
+        let (_, eps_p1, _) = radial_return(
+            sigma_trial,
+            0.0,
+            200_000.0,
+            0.3,
+            250.0,
+            &hardening,
+            1e-8,
+            50,
+        );
         // With hardening, the yield stress increases, so less plastic strain
         // than the perfect-plasticity case.
-        let (_, eps_p2, _) = radial_return(sigma_trial, 0.0, 200_000.0, 0.3, 250.0, &HardeningLaw::Perfect, 1e-8, 50);
+        let (_, eps_p2, _) = radial_return(
+            sigma_trial,
+            0.0,
+            200_000.0,
+            0.3,
+            250.0,
+            &HardeningLaw::Perfect,
+            1e-8,
+            50,
+        );
         assert!(eps_p1 < eps_p2, "hardening should reduce plastic strain");
     }
 
     #[test]
     fn yield_stress_matches_hardening_law() {
-        let law = HardeningLaw::Linear { hardening_modulus: 500.0 };
+        let law = HardeningLaw::Linear {
+            hardening_modulus: 500.0,
+        };
         assert!((law.yield_stress(200.0, 0.0) - 200.0).abs() < 1e-9);
         assert!((law.yield_stress(200.0, 0.1) - 250.0).abs() < 1e-9);
         assert!((law.tangent_modulus(200.0, 0.5) - 500.0).abs() < 1e-9);

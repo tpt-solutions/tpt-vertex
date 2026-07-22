@@ -94,12 +94,7 @@ pub fn geometric_stiffness(nodes: &[[f64; 3]; 4], sigma: [f64; 6]) -> [[f64; 12]
 /// Assemble the global geometric stiffness matrix from the pre-buckling stress
 /// state. The stress in each element is computed from the linear-static
 /// displacement field `u`.
-pub fn assemble_geometric(
-    vol: &VolMesh,
-    e: f64,
-    nu: f64,
-    u: &[f64],
-) -> Vec<f64> {
+pub fn assemble_geometric(vol: &VolMesh, e: f64, nu: f64, u: &[f64]) -> Vec<f64> {
     let n_dofs = vol.node_count() * 3;
     let mut k_geo = vec![0.0; n_dofs * n_dofs];
 
@@ -111,14 +106,24 @@ pub fn assemble_geometric(
             vol.nodes[tet[3]],
         ];
         let stress = element_stress(vol, t, e, nu, u);
-        let sigma = [stress.sx, stress.sy, stress.sz, stress.txy, stress.tyz, stress.tzx];
+        let sigma = [
+            stress.sx, stress.sy, stress.sz, stress.txy, stress.tyz, stress.tzx,
+        ];
         let ke_geo = geometric_stiffness(&nodes, sigma);
 
         let gdof = [
-            GlobalSystem::dof(tet[0], 0), GlobalSystem::dof(tet[0], 1), GlobalSystem::dof(tet[0], 2),
-            GlobalSystem::dof(tet[1], 0), GlobalSystem::dof(tet[1], 1), GlobalSystem::dof(tet[1], 2),
-            GlobalSystem::dof(tet[2], 0), GlobalSystem::dof(tet[2], 1), GlobalSystem::dof(tet[2], 2),
-            GlobalSystem::dof(tet[3], 0), GlobalSystem::dof(tet[3], 1), GlobalSystem::dof(tet[3], 2),
+            GlobalSystem::dof(tet[0], 0),
+            GlobalSystem::dof(tet[0], 1),
+            GlobalSystem::dof(tet[0], 2),
+            GlobalSystem::dof(tet[1], 0),
+            GlobalSystem::dof(tet[1], 1),
+            GlobalSystem::dof(tet[1], 2),
+            GlobalSystem::dof(tet[2], 0),
+            GlobalSystem::dof(tet[2], 1),
+            GlobalSystem::dof(tet[2], 2),
+            GlobalSystem::dof(tet[3], 0),
+            GlobalSystem::dof(tet[3], 1),
+            GlobalSystem::dof(tet[3], 2),
         ];
         for i in 0..12 {
             for j in 0..12 {
@@ -154,13 +159,26 @@ pub fn buckling_analysis(
     let mut k = vec![0.0; n_dofs * n_dofs];
     let mut f = vec![0.0; n_dofs];
     for tet in &vol.tets {
-        let nodes = [vol.nodes[tet[0]], vol.nodes[tet[1]], vol.nodes[tet[2]], vol.nodes[tet[3]]];
+        let nodes = [
+            vol.nodes[tet[0]],
+            vol.nodes[tet[1]],
+            vol.nodes[tet[2]],
+            vol.nodes[tet[3]],
+        ];
         let ke = tet_stiffness(&nodes, &d);
         let gdof = [
-            GlobalSystem::dof(tet[0], 0), GlobalSystem::dof(tet[0], 1), GlobalSystem::dof(tet[0], 2),
-            GlobalSystem::dof(tet[1], 0), GlobalSystem::dof(tet[1], 1), GlobalSystem::dof(tet[1], 2),
-            GlobalSystem::dof(tet[2], 0), GlobalSystem::dof(tet[2], 1), GlobalSystem::dof(tet[2], 2),
-            GlobalSystem::dof(tet[3], 0), GlobalSystem::dof(tet[3], 1), GlobalSystem::dof(tet[3], 2),
+            GlobalSystem::dof(tet[0], 0),
+            GlobalSystem::dof(tet[0], 1),
+            GlobalSystem::dof(tet[0], 2),
+            GlobalSystem::dof(tet[1], 0),
+            GlobalSystem::dof(tet[1], 1),
+            GlobalSystem::dof(tet[1], 2),
+            GlobalSystem::dof(tet[2], 0),
+            GlobalSystem::dof(tet[2], 1),
+            GlobalSystem::dof(tet[2], 2),
+            GlobalSystem::dof(tet[3], 0),
+            GlobalSystem::dof(tet[3], 1),
+            GlobalSystem::dof(tet[3], 2),
         ];
         for i in 0..12 {
             for j in 0..12 {
@@ -296,16 +314,28 @@ mod tests {
         let mut s = Solid::new();
         let mut v = |x, y, z| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(-0.5, -0.5, 0.0), v(0.5, -0.5, 0.0), v(0.5, 0.5, 0.0), v(-0.5, 0.5, 0.0),
-            v(-0.5, -0.5, height), v(0.5, -0.5, height), v(0.5, 0.5, height), v(-0.5, 0.5, height),
+            v(-0.5, -0.5, 0.0),
+            v(0.5, -0.5, 0.0),
+            v(0.5, 0.5, 0.0),
+            v(-0.5, 0.5, 0.0),
+            v(-0.5, -0.5, height),
+            v(0.5, -0.5, height),
+            v(0.5, 0.5, height),
+            v(-0.5, 0.5, height),
         ];
         let mut f = |a, b, c| s.faces.push(Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 
@@ -313,26 +343,48 @@ mod tests {
     fn column_buckling_load_factor_is_positive() {
         let solid = column(10.0);
         let m = crate::mesh::tetrahedralize(&solid, 2.0).unwrap();
-        let fixed: Vec<usize> = m.nodes.iter().enumerate()
+        let fixed: Vec<usize> = m
+            .nodes
+            .iter()
+            .enumerate()
             .filter(|(_, n)| n[2] < 1e-6)
             .map(|(i, _)| i)
             .collect();
         let bc = BoundaryCondition::new()
             .fix_all(&fixed)
             .with_load(crate::bc::PointLoad {
-                node: m.nodes.iter().enumerate()
+                node: m
+                    .nodes
+                    .iter()
+                    .enumerate()
                     .max_by(|a, b| a.1[2].partial_cmp(&b.1[2]).unwrap())
-                    .unwrap().0,
-                fx: 0.0, fy: 0.0, fz: -100.0,
+                    .unwrap()
+                    .0,
+                fx: 0.0,
+                fy: 0.0,
+                fz: -100.0,
             });
         let res = buckling_analysis(&m, 200_000.0, 0.3, &bc, 3);
-        assert!(!res.load_factors.is_empty(), "should have at least one buckling mode");
-        assert!(res.load_factors[0] > 0.0, "first load factor should be positive: {}", res.load_factors[0]);
+        assert!(
+            !res.load_factors.is_empty(),
+            "should have at least one buckling mode"
+        );
+        assert!(
+            res.load_factors[0] > 0.0,
+            "first load factor should be positive: {}",
+            res.load_factors[0]
+        );
     }
 
     #[test]
+    #[allow(clippy::needless_range_loop)] // symmetric 12x12 matrix indexing is clearest with range loops
     fn geometric_stiffness_is_symmetric() {
-        let nodes = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+        let nodes = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ];
         let sigma = [100.0, 50.0, 0.0, 10.0, 0.0, 0.0];
         let kg = geometric_stiffness(&nodes, sigma);
         for i in 0..12 {

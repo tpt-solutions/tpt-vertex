@@ -63,15 +63,7 @@ pub fn dshape_dlambda() -> [[f64; 4]; N_NODES] {
         // This function is kept as documentation; actual derivatives are
         // computed in `b_matrix`.
         [0.0; 4], // placeholder — see b_matrix
-        [0.0; 4],
-        [0.0; 4],
-        [0.0; 4],
-        [0.0; 4],
-        [0.0; 4],
-        [0.0; 4],
-        [0.0; 4],
-        [0.0; 4],
-        [0.0; 4],
+        [0.0; 4], [0.0; 4], [0.0; 4], [0.0; 4], [0.0; 4], [0.0; 4], [0.0; 4], [0.0; 4], [0.0; 4],
     ]
 }
 
@@ -108,17 +100,23 @@ fn dndl_at(l: [f64; 4]) -> [[f64; 4]; N_NODES] {
     }
     // Mid-edge nodes:
     // N_4 = 4 l0 l1: d/dl0=4l1, d/dl1=4l0
-    dndl[4][0] = 4.0 * l[1]; dndl[4][1] = 4.0 * l[0];
+    dndl[4][0] = 4.0 * l[1];
+    dndl[4][1] = 4.0 * l[0];
     // N_5 = 4 l1 l2: d/dl1=4l2, d/dl2=4l1
-    dndl[5][1] = 4.0 * l[2]; dndl[5][2] = 4.0 * l[1];
+    dndl[5][1] = 4.0 * l[2];
+    dndl[5][2] = 4.0 * l[1];
     // N_6 = 4 l0 l2: d/dl0=4l2, d/dl2=4l0
-    dndl[6][0] = 4.0 * l[2]; dndl[6][2] = 4.0 * l[0];
+    dndl[6][0] = 4.0 * l[2];
+    dndl[6][2] = 4.0 * l[0];
     // N_7 = 4 l0 l3: d/dl0=4l3, d/dl3=4l0
-    dndl[7][0] = 4.0 * l[3]; dndl[7][3] = 4.0 * l[0];
+    dndl[7][0] = 4.0 * l[3];
+    dndl[7][3] = 4.0 * l[0];
     // N_8 = 4 l1 l3: d/dl1=4l3, d/dl3=4l1
-    dndl[8][1] = 4.0 * l[3]; dndl[8][3] = 4.0 * l[1];
+    dndl[8][1] = 4.0 * l[3];
+    dndl[8][3] = 4.0 * l[1];
     // N_9 = 4 l2 l3: d/dl2=4l3, d/dl3=4l2
-    dndl[9][2] = 4.0 * l[3]; dndl[9][3] = 4.0 * l[2];
+    dndl[9][2] = 4.0 * l[3];
+    dndl[9][3] = 4.0 * l[2];
     dndl
 }
 
@@ -202,14 +200,14 @@ pub fn b_matrix(nodes: &[[f64; 3]; N_NODES], l: [f64; 4]) -> [[f64; N_DOFS]; N_S
     let mut b = [[0.0; N_DOFS]; N_STRAIN];
     for k in 0..N_NODES {
         let c = 3 * k;
-        b[0][c] = dndx[k][0];      // εxx
-        b[1][c + 1] = dndx[k][1];  // εyy
-        b[2][c + 2] = dndx[k][2];  // εzz
-        b[3][c] = dndx[k][1];      // γxy
+        b[0][c] = dndx[k][0]; // εxx
+        b[1][c + 1] = dndx[k][1]; // εyy
+        b[2][c + 2] = dndx[k][2]; // εzz
+        b[3][c] = dndx[k][1]; // γxy
         b[3][c + 1] = dndx[k][0];
-        b[4][c + 1] = dndx[k][2];  // γyz
+        b[4][c + 1] = dndx[k][2]; // γyz
         b[4][c + 2] = dndx[k][1];
-        b[5][c] = dndx[k][2];      // γzx
+        b[5][c] = dndx[k][2]; // γzx
         b[5][c + 2] = dndx[k][0];
     }
     b
@@ -246,7 +244,10 @@ pub fn gauss_points_4() -> Vec<([f64; 4], f64)> {
 ///
 /// `d` is the 6×6 constitutive matrix from `crate::material::elastic_matrix`.
 #[allow(clippy::needless_range_loop)]
-pub fn quadratic_tet_stiffness(nodes: &[[f64; 3]; N_NODES], d: &[[f64; 6]; 6]) -> [[f64; N_DOFS]; N_DOFS] {
+pub fn quadratic_tet_stiffness(
+    nodes: &[[f64; 3]; N_NODES],
+    d: &[[f64; 6]; 6],
+) -> [[f64; N_DOFS]; N_DOFS] {
     let gps = gauss_points_4();
     let mut ke = [[0.0; N_DOFS]; N_DOFS];
 
@@ -295,17 +296,42 @@ mod tests {
         ];
         // Mid-edge nodes at midpoints of linear-tet edges.
         let m = [
-            [(c[0][0]+c[1][0])/2.0, (c[0][1]+c[1][1])/2.0, (c[0][2]+c[1][2])/2.0], // 4: edge(0,1)
-            [(c[1][0]+c[2][0])/2.0, (c[1][1]+c[2][1])/2.0, (c[1][2]+c[2][2])/2.0], // 5: edge(1,2)
-            [(c[0][0]+c[2][0])/2.0, (c[0][1]+c[2][1])/2.0, (c[0][2]+c[2][2])/2.0], // 6: edge(0,2)
-            [(c[0][0]+c[3][0])/2.0, (c[0][1]+c[3][1])/2.0, (c[0][2]+c[3][2])/2.0], // 7: edge(0,3)
-            [(c[1][0]+c[3][0])/2.0, (c[1][1]+c[3][1])/2.0, (c[1][2]+c[3][2])/2.0], // 8: edge(1,3)
-            [(c[2][0]+c[3][0])/2.0, (c[2][1]+c[3][1])/2.0, (c[2][2]+c[3][2])/2.0], // 9: edge(2,3)
+            [
+                (c[0][0] + c[1][0]) / 2.0,
+                (c[0][1] + c[1][1]) / 2.0,
+                (c[0][2] + c[1][2]) / 2.0,
+            ], // 4: edge(0,1)
+            [
+                (c[1][0] + c[2][0]) / 2.0,
+                (c[1][1] + c[2][1]) / 2.0,
+                (c[1][2] + c[2][2]) / 2.0,
+            ], // 5: edge(1,2)
+            [
+                (c[0][0] + c[2][0]) / 2.0,
+                (c[0][1] + c[2][1]) / 2.0,
+                (c[0][2] + c[2][2]) / 2.0,
+            ], // 6: edge(0,2)
+            [
+                (c[0][0] + c[3][0]) / 2.0,
+                (c[0][1] + c[3][1]) / 2.0,
+                (c[0][2] + c[3][2]) / 2.0,
+            ], // 7: edge(0,3)
+            [
+                (c[1][0] + c[3][0]) / 2.0,
+                (c[1][1] + c[3][1]) / 2.0,
+                (c[1][2] + c[3][2]) / 2.0,
+            ], // 8: edge(1,3)
+            [
+                (c[2][0] + c[3][0]) / 2.0,
+                (c[2][1] + c[3][1]) / 2.0,
+                (c[2][2] + c[3][2]) / 2.0,
+            ], // 9: edge(2,3)
         ];
         [c[0], c[1], c[2], c[3], m[0], m[1], m[2], m[3], m[4], m[5]]
     }
 
     #[test]
+    #[allow(clippy::needless_range_loop)] // symmetric NxN matrix indexing is clearest with range loops
     fn stiffness_is_symmetric() {
         let d = crate::material::elastic_matrix(200_000.0, 0.3);
         let k = quadratic_tet_stiffness(&ref_quad_tet(), &d);
@@ -323,16 +349,27 @@ mod tests {
             [0.25, 0.25, 0.25, 0.25],
             [1.0, 0.0, 0.0, 0.0],
             [0.5, 0.5, 0.0, 0.0],
-            [0.1381966011250105, 0.1381966011250105, 0.1381966011250105, 0.5854101966249685],
+            [
+                0.1381966011250105,
+                0.1381966011250105,
+                0.1381966011250105,
+                0.5854101966249685,
+            ],
         ];
         for l in points {
             let n = shape_functions(l);
             let sum: f64 = n.iter().sum();
-            assert!((sum - 1.0).abs() < 1e-12, "shape function sum at {:?} = {}", l, sum);
+            assert!(
+                (sum - 1.0).abs() < 1e-12,
+                "shape function sum at {:?} = {}",
+                l,
+                sum
+            );
         }
     }
 
     #[test]
+    #[allow(clippy::needless_range_loop)] // symmetric NxN matrix indexing is clearest with range loops
     fn stiffness_column_sums_near_zero() {
         // Rigid-body translation should produce zero strain energy.
         let d = crate::material::elastic_matrix(200_000.0, 0.3);

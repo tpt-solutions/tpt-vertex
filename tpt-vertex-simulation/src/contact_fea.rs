@@ -23,7 +23,7 @@
 
 use crate::bc::BoundaryCondition;
 use crate::mesh::VolMesh;
-use crate::nonlinear::{NonlinearMaterial, NonlinearTolerance, nonlinear_solve};
+use crate::nonlinear::{nonlinear_solve, NonlinearMaterial, NonlinearTolerance};
 
 /// Contact pair between two meshes (node set A and surface triangles B).
 #[derive(Debug, Clone)]
@@ -245,7 +245,7 @@ fn ray_triangle_intersect(
     let f = 1.0 / a;
     let s = [orig[0] - v0[0], orig[1] - v0[1], orig[2] - v0[2]];
     let u = f * dot(&s, &h);
-    if u < 0.0 || u > 1.0 {
+    if !(0.0..=1.0).contains(&u) {
         return false;
     }
     let q = cross(&s, &edge1);
@@ -265,9 +265,12 @@ struct AabbSimple {
 
 impl AabbSimple {
     fn overlaps(&self, other: &AabbSimple) -> bool {
-        self.min[0] <= other.max[0] && self.max[0] >= other.min[0]
-            && self.min[1] <= other.max[1] && self.max[1] >= other.min[1]
-            && self.min[2] <= other.max[2] && self.max[2] >= other.min[2]
+        self.min[0] <= other.max[0]
+            && self.max[0] >= other.min[0]
+            && self.min[1] <= other.max[1]
+            && self.max[1] >= other.min[1]
+            && self.min[2] <= other.max[2]
+            && self.max[2] >= other.min[2]
     }
 }
 
@@ -335,7 +338,9 @@ pub struct ContactAnalysisResult {
 /// detected once and used throughout the Newton-Raphson iteration (non-adaptive
 /// contact search). A full sliding contact formulation is a documented
 /// fast-follow.
-pub fn run_contact_analysis(config: &ContactAnalysisConfig) -> Result<ContactAnalysisResult, String> {
+pub fn run_contact_analysis(
+    config: &ContactAnalysisConfig,
+) -> Result<ContactAnalysisResult, String> {
     if config.meshes.is_empty() {
         return Err("no meshes provided".into());
     }
@@ -358,7 +363,10 @@ pub fn run_contact_analysis(config: &ContactAnalysisConfig) -> Result<ContactAna
         }
     }
 
-    let global_vol = VolMesh { nodes: global_nodes, tets: global_tets };
+    let global_vol = VolMesh {
+        nodes: global_nodes,
+        tets: global_tets,
+    };
 
     // Detect contact constraints between each pair.
     let mut all_constraints = Vec::new();
@@ -397,7 +405,8 @@ pub fn run_contact_analysis(config: &ContactAnalysisConfig) -> Result<ContactAna
     );
 
     // Compute contact forces from the converged solution.
-    let contact_forces = compute_contact_forces(&all_constraints, &result.displacements, &global_vol);
+    let contact_forces =
+        compute_contact_forces(&all_constraints, &result.displacements, &global_vol);
 
     // Split displacements and von Mises back per mesh.
     let mut displacements = Vec::new();
@@ -406,7 +415,9 @@ pub fn run_contact_analysis(config: &ContactAnalysisConfig) -> Result<ContactAna
         let offset = node_offsets[i] * 3;
         let n_dofs = mesh.node_count() * 3;
         let u_mesh: Vec<f64> = result.displacements[offset..offset + n_dofs].to_vec();
-        let vm_mesh: Vec<f64> = result.von_mises.iter()
+        let vm_mesh: Vec<f64> = result
+            .von_mises
+            .iter()
             .skip(i * mesh.tet_count())
             .take(mesh.tet_count())
             .copied()
@@ -429,15 +440,18 @@ fn compute_contact_forces(
     _u: &[f64],
     _vol: &VolMesh,
 ) -> Vec<[f64; 3]> {
-    constraints.iter().map(|c| {
-        // Penetration velocity (simplified: just k * depth * normal).
-        let depth = c.depth;
-        [
-            c.k_penalty * depth * c.normal[0],
-            c.k_penalty * depth * c.normal[1],
-            c.k_penalty * depth * c.normal[2],
-        ]
-    }).collect()
+    constraints
+        .iter()
+        .map(|c| {
+            // Penetration velocity (simplified: just k * depth * normal).
+            let depth = c.depth;
+            [
+                c.k_penalty * depth * c.normal[0],
+                c.k_penalty * depth * c.normal[1],
+                c.k_penalty * depth * c.normal[2],
+            ]
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -447,14 +461,21 @@ mod tests {
     fn cube_mesh(offset_x: f64) -> VolMesh {
         let o = offset_x;
         let nodes = vec![
-            [o-1.0, -1.0, -1.0], [o+1.0, -1.0, -1.0],
-            [o+1.0, 1.0, -1.0], [o-1.0, 1.0, -1.0],
-            [o-1.0, -1.0, 1.0], [o+1.0, -1.0, 1.0],
-            [o+1.0, 1.0, 1.0], [o-1.0, 1.0, 1.0],
+            [o - 1.0, -1.0, -1.0],
+            [o + 1.0, -1.0, -1.0],
+            [o + 1.0, 1.0, -1.0],
+            [o - 1.0, 1.0, -1.0],
+            [o - 1.0, -1.0, 1.0],
+            [o + 1.0, -1.0, 1.0],
+            [o + 1.0, 1.0, 1.0],
+            [o - 1.0, 1.0, 1.0],
         ];
         let tets = vec![
-            [0, 1, 2, 6], [0, 1, 5, 6], [0, 2, 3, 6],
-            [0, 3, 7, 6], [0, 5, 7, 6],
+            [0, 1, 2, 6],
+            [0, 1, 5, 6],
+            [0, 2, 3, 6],
+            [0, 3, 7, 6],
+            [0, 5, 7, 6],
         ];
         VolMesh { nodes, tets }
     }

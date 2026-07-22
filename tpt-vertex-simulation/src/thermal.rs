@@ -70,13 +70,22 @@ pub fn element_conductivity(nodes: &[[f64; 3]; 4], conductivity: f64) -> [[f64; 
 /// Assemble the global steady-state conduction system and apply boundary
 /// conditions via exact Dirichlet elimination (fixed temperatures need not
 /// be zero, unlike the mechanical penalty-method fixation).
-pub fn assemble_thermal(vol: &VolMesh, conductivity: f64, bc: &ThermalBoundaryCondition) -> ThermalSystem {
+pub fn assemble_thermal(
+    vol: &VolMesh,
+    conductivity: f64,
+    bc: &ThermalBoundaryCondition,
+) -> ThermalSystem {
     let n = vol.node_count();
     let mut k = vec![0.0; n * n];
     let mut f = vec![0.0; n];
 
     for tet in &vol.tets {
-        let nodes = [vol.nodes[tet[0]], vol.nodes[tet[1]], vol.nodes[tet[2]], vol.nodes[tet[3]]];
+        let nodes = [
+            vol.nodes[tet[0]],
+            vol.nodes[tet[1]],
+            vol.nodes[tet[2]],
+            vol.nodes[tet[3]],
+        ];
         let ke = element_conductivity(&nodes, conductivity);
         for i in 0..4 {
             for j in 0..4 {
@@ -111,7 +120,11 @@ pub fn assemble_thermal(vol: &VolMesh, conductivity: f64, bc: &ThermalBoundaryCo
 }
 
 /// Run steady-state thermal conduction on `vol`, returning nodal temperatures.
-pub fn solve_steady_state(vol: &VolMesh, conductivity: f64, bc: &ThermalBoundaryCondition) -> Vec<f64> {
+pub fn solve_steady_state(
+    vol: &VolMesh,
+    conductivity: f64,
+    bc: &ThermalBoundaryCondition,
+) -> Vec<f64> {
     assemble_thermal(vol, conductivity, bc).solve()
 }
 
@@ -131,18 +144,35 @@ pub fn thermal_load_vector(
     let d = elastic_matrix(e, nu);
 
     for tet in &vol.tets {
-        let nodes = [vol.nodes[tet[0]], vol.nodes[tet[1]], vol.nodes[tet[2]], vol.nodes[tet[3]]];
-        let t_avg = (temperatures[tet[0]] + temperatures[tet[1]] + temperatures[tet[2]] + temperatures[tet[3]]) / 4.0;
+        let nodes = [
+            vol.nodes[tet[0]],
+            vol.nodes[tet[1]],
+            vol.nodes[tet[2]],
+            vol.nodes[tet[3]],
+        ];
+        let t_avg = (temperatures[tet[0]]
+            + temperatures[tet[1]]
+            + temperatures[tet[2]]
+            + temperatures[tet[3]])
+            / 4.0;
         let eps0 = thermal_eigenstrain(alpha, t_avg, t_ref);
         let d_eps0 = apply_d(&d, eps0);
         let b = strain_displacement(&nodes);
         let vol_e = tet_volume(&nodes).abs();
 
         let gdof = [
-            GlobalSystem::dof(tet[0], 0), GlobalSystem::dof(tet[0], 1), GlobalSystem::dof(tet[0], 2),
-            GlobalSystem::dof(tet[1], 0), GlobalSystem::dof(tet[1], 1), GlobalSystem::dof(tet[1], 2),
-            GlobalSystem::dof(tet[2], 0), GlobalSystem::dof(tet[2], 1), GlobalSystem::dof(tet[2], 2),
-            GlobalSystem::dof(tet[3], 0), GlobalSystem::dof(tet[3], 1), GlobalSystem::dof(tet[3], 2),
+            GlobalSystem::dof(tet[0], 0),
+            GlobalSystem::dof(tet[0], 1),
+            GlobalSystem::dof(tet[0], 2),
+            GlobalSystem::dof(tet[1], 0),
+            GlobalSystem::dof(tet[1], 1),
+            GlobalSystem::dof(tet[1], 2),
+            GlobalSystem::dof(tet[2], 0),
+            GlobalSystem::dof(tet[2], 1),
+            GlobalSystem::dof(tet[2], 2),
+            GlobalSystem::dof(tet[3], 0),
+            GlobalSystem::dof(tet[3], 1),
+            GlobalSystem::dof(tet[3], 2),
         ];
         for i in 0..12 {
             let mut s = 0.0;
@@ -162,6 +192,7 @@ fn thermal_eigenstrain(alpha: f64, t_avg: f64, t_ref: f64) -> [f64; 6] {
 
 /// Recover the total stress in tet `t` given the solved displacement field
 /// `u` and the nodal `temperatures`: `σ = D·(B·u − ε₀)`.
+#[allow(clippy::too_many_arguments)] // mirrors the FEA material parameter set used throughout this crate
 pub fn element_thermal_stress(
     vol: &VolMesh,
     t: usize,
@@ -173,7 +204,12 @@ pub fn element_thermal_stress(
     t_ref: f64,
 ) -> StressTensor {
     let tet = vol.tets[t];
-    let nodes = [vol.nodes[tet[0]], vol.nodes[tet[1]], vol.nodes[tet[2]], vol.nodes[tet[3]]];
+    let nodes = [
+        vol.nodes[tet[0]],
+        vol.nodes[tet[1]],
+        vol.nodes[tet[2]],
+        vol.nodes[tet[3]],
+    ];
     let b = strain_displacement(&nodes);
     let d = elastic_matrix(e, nu);
 
@@ -192,10 +228,26 @@ pub fn element_thermal_stress(
         }
         strain[i] = s;
     }
-    let t_avg = (temperatures[tet[0]] + temperatures[tet[1]] + temperatures[tet[2]] + temperatures[tet[3]]) / 4.0;
+    let t_avg =
+        (temperatures[tet[0]] + temperatures[tet[1]] + temperatures[tet[2]] + temperatures[tet[3]])
+            / 4.0;
     let eps0 = thermal_eigenstrain(alpha, t_avg, t_ref);
-    let mech_strain: Vec<f64> = strain.iter().zip(eps0.iter()).map(|(s, e0)| s - e0).collect();
-    let sigma = apply_d(&d, [mech_strain[0], mech_strain[1], mech_strain[2], mech_strain[3], mech_strain[4], mech_strain[5]]);
+    let mech_strain: Vec<f64> = strain
+        .iter()
+        .zip(eps0.iter())
+        .map(|(s, e0)| s - e0)
+        .collect();
+    let sigma = apply_d(
+        &d,
+        [
+            mech_strain[0],
+            mech_strain[1],
+            mech_strain[2],
+            mech_strain[3],
+            mech_strain[4],
+            mech_strain[5],
+        ],
+    );
 
     StressTensor {
         sx: sigma[0],
@@ -241,10 +293,22 @@ pub fn run_thermal_stress_analysis(
     let mesh = crate::mesh::tetrahedralize(solid, settings.max_tet_edge)?;
     let temperatures = solve_steady_state(&mesh, settings.conductivity, &settings.thermal_bc);
 
-    let mut sys = crate::assembly::assemble(&mesh, settings.youngs_modulus, settings.poisson_ratio, &settings.mech);
-    let f_th = thermal_load_vector(&mesh, settings.youngs_modulus, settings.poisson_ratio, &temperatures, settings.alpha, settings.t_ref);
-    for i in 0..sys.f.len() {
-        sys.f[i] += f_th[i];
+    let mut sys = crate::assembly::assemble(
+        &mesh,
+        settings.youngs_modulus,
+        settings.poisson_ratio,
+        &settings.mech,
+    );
+    let f_th = thermal_load_vector(
+        &mesh,
+        settings.youngs_modulus,
+        settings.poisson_ratio,
+        &temperatures,
+        settings.alpha,
+        settings.t_ref,
+    );
+    for (fi, fth_i) in sys.f.iter_mut().zip(f_th.iter()) {
+        *fi += fth_i;
     }
     // Re-clamp fixed DOFs to zero: `assemble` already zeroed their rows/cols
     // and RHS to encode u=0 there; adding f_th must not perturb that.
@@ -257,12 +321,26 @@ pub fn run_thermal_stress_analysis(
 
     let von_mises: Vec<f64> = (0..mesh.tet_count())
         .map(|t| {
-            element_thermal_stress(&mesh, t, settings.youngs_modulus, settings.poisson_ratio, &displacements, &temperatures, settings.alpha, settings.t_ref)
-                .von_mises()
+            element_thermal_stress(
+                &mesh,
+                t,
+                settings.youngs_modulus,
+                settings.poisson_ratio,
+                &displacements,
+                &temperatures,
+                settings.alpha,
+                settings.t_ref,
+            )
+            .von_mises()
         })
         .collect();
 
-    Ok(ThermalStressResult { mesh, temperatures, displacements, von_mises })
+    Ok(ThermalStressResult {
+        mesh,
+        temperatures,
+        displacements,
+        von_mises,
+    })
 }
 
 #[cfg(test)]
@@ -271,20 +349,32 @@ mod tests {
     use tpt_vertex_kernel::geometry::solid::{Face, Solid};
     use tpt_vertex_kernel::math::Vec3;
 
-    fn cube() -> Solid {
+    pub(super) fn cube() -> Solid {
         let mut s = Solid::new();
         let mut v = |x, y, z| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(-1.0, -1.0, -1.0), v(1.0, -1.0, -1.0), v(1.0, 1.0, -1.0), v(-1.0, 1.0, -1.0),
-            v(-1.0, -1.0, 1.0), v(1.0, -1.0, 1.0), v(1.0, 1.0, 1.0), v(-1.0, 1.0, 1.0),
+            v(-1.0, -1.0, -1.0),
+            v(1.0, -1.0, -1.0),
+            v(1.0, 1.0, -1.0),
+            v(-1.0, 1.0, -1.0),
+            v(-1.0, -1.0, 1.0),
+            v(1.0, -1.0, 1.0),
+            v(1.0, 1.0, 1.0),
+            v(-1.0, 1.0, 1.0),
         ];
         let mut f = |a, b, c| s.faces.push(Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 
@@ -310,7 +400,13 @@ mod tests {
         let t = solve_steady_state(&m, 50.0, &bc);
         for (i, n) in m.nodes.iter().enumerate() {
             let expected = 100.0 * (max_x - n[0]) / (max_x - min_x);
-            assert!((t[i] - expected).abs() < 1e-6, "node {i} at x={} got {} expected {}", n[0], t[i], expected);
+            assert!(
+                (t[i] - expected).abs() < 1e-6,
+                "node {i} at x={} got {} expected {}",
+                n[0],
+                t[i],
+                expected
+            );
         }
     }
 
@@ -347,10 +443,22 @@ mod tests {
         };
         // Uniform temperature field (no conduction gradient): every node at 100°C.
         let uniform_temp = vec![100.0; m.node_count()];
-        let f_th = thermal_load_vector(&m, settings.youngs_modulus, settings.poisson_ratio, &uniform_temp, settings.alpha, settings.t_ref);
-        let mut sys = crate::assembly::assemble(&m, settings.youngs_modulus, settings.poisson_ratio, &settings.mech);
-        for i in 0..sys.f.len() {
-            sys.f[i] += f_th[i];
+        let f_th = thermal_load_vector(
+            &m,
+            settings.youngs_modulus,
+            settings.poisson_ratio,
+            &uniform_temp,
+            settings.alpha,
+            settings.t_ref,
+        );
+        let mut sys = crate::assembly::assemble(
+            &m,
+            settings.youngs_modulus,
+            settings.poisson_ratio,
+            &settings.mech,
+        );
+        for (fi, fth_i) in sys.f.iter_mut().zip(f_th.iter()) {
+            *fi += fth_i;
         }
         for &node in &settings.mech.fixed_nodes {
             for a in 0..3 {
@@ -360,9 +468,21 @@ mod tests {
         let u = sys.solve();
         let mut min_sx = f64::INFINITY;
         for t in 0..m.tet_count() {
-            let s = element_thermal_stress(&m, t, settings.youngs_modulus, settings.poisson_ratio, &u, &uniform_temp, settings.alpha, settings.t_ref);
+            let s = element_thermal_stress(
+                &m,
+                t,
+                settings.youngs_modulus,
+                settings.poisson_ratio,
+                &u,
+                &uniform_temp,
+                settings.alpha,
+                settings.t_ref,
+            );
             min_sx = min_sx.min(s.sx);
         }
-        assert!(min_sx < -10.0, "expected compressive sigma_xx, got min {min_sx}");
+        assert!(
+            min_sx < -10.0,
+            "expected compressive sigma_xx, got min {min_sx}"
+        );
     }
 }

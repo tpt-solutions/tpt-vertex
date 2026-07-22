@@ -31,7 +31,13 @@ pub struct ModalResult {
 
 /// Run modal analysis on `vol` for isotropic material `(e, nu, density)`,
 /// with `fixed_nodes` removed from the system (rigid supports).
-pub fn modal_analysis(vol: &VolMesh, e: f64, nu: f64, density: f64, fixed_nodes: &[usize]) -> ModalResult {
+pub fn modal_analysis(
+    vol: &VolMesh,
+    e: f64,
+    nu: f64,
+    density: f64,
+    fixed_nodes: &[usize],
+) -> ModalResult {
     let n_nodes = vol.node_count();
     let n_dofs = n_nodes * 3;
     let d = elastic_matrix(e, nu);
@@ -40,13 +46,26 @@ pub fn modal_analysis(vol: &VolMesh, e: f64, nu: f64, density: f64, fixed_nodes:
     let mut mass_diag = vec![0.0; n_dofs];
 
     for tet in &vol.tets {
-        let nodes = [vol.nodes[tet[0]], vol.nodes[tet[1]], vol.nodes[tet[2]], vol.nodes[tet[3]]];
+        let nodes = [
+            vol.nodes[tet[0]],
+            vol.nodes[tet[1]],
+            vol.nodes[tet[2]],
+            vol.nodes[tet[3]],
+        ];
         let ke = tet_stiffness(&nodes, &d);
         let gdof = [
-            GlobalSystem::dof(tet[0], 0), GlobalSystem::dof(tet[0], 1), GlobalSystem::dof(tet[0], 2),
-            GlobalSystem::dof(tet[1], 0), GlobalSystem::dof(tet[1], 1), GlobalSystem::dof(tet[1], 2),
-            GlobalSystem::dof(tet[2], 0), GlobalSystem::dof(tet[2], 1), GlobalSystem::dof(tet[2], 2),
-            GlobalSystem::dof(tet[3], 0), GlobalSystem::dof(tet[3], 1), GlobalSystem::dof(tet[3], 2),
+            GlobalSystem::dof(tet[0], 0),
+            GlobalSystem::dof(tet[0], 1),
+            GlobalSystem::dof(tet[0], 2),
+            GlobalSystem::dof(tet[1], 0),
+            GlobalSystem::dof(tet[1], 1),
+            GlobalSystem::dof(tet[1], 2),
+            GlobalSystem::dof(tet[2], 0),
+            GlobalSystem::dof(tet[2], 1),
+            GlobalSystem::dof(tet[2], 2),
+            GlobalSystem::dof(tet[3], 0),
+            GlobalSystem::dof(tet[3], 1),
+            GlobalSystem::dof(tet[3], 2),
         ];
         for i in 0..12 {
             for j in 0..12 {
@@ -80,7 +99,10 @@ pub fn modal_analysis(vol: &VolMesh, e: f64, nu: f64, density: f64, fixed_nodes:
         }
     }
     let mff: Vec<f64> = free_dofs.iter().map(|&dof| mass_diag[dof]).collect();
-    let minv_sqrt: Vec<f64> = mff.iter().map(|&m| if m > 1e-15 { 1.0 / m.sqrt() } else { 0.0 }).collect();
+    let minv_sqrt: Vec<f64> = mff
+        .iter()
+        .map(|&m| if m > 1e-15 { 1.0 / m.sqrt() } else { 0.0 })
+        .collect();
 
     let mut kp = vec![0.0; nf * nf];
     for i in 0..nf {
@@ -100,11 +122,17 @@ pub fn modal_analysis(vol: &VolMesh, e: f64, nu: f64, density: f64, fixed_nodes:
         // ω² = K_SI/M_SI = (K/M)·1e6, i.e. ω = 1000·sqrt(λ).
         let omega = 1000.0 * lambda.sqrt();
         frequencies_hz.push(omega / (2.0 * std::f64::consts::PI));
-        let shape: Vec<f64> = (0..nf).map(|i| minv_sqrt[i] * eigvecs[i * nf + m]).collect();
+        let shape: Vec<f64> = (0..nf)
+            .map(|i| minv_sqrt[i] * eigvecs[i * nf + m])
+            .collect();
         mode_shapes.push(shape);
     }
 
-    ModalResult { frequencies_hz, mode_shapes, free_dofs }
+    ModalResult {
+        frequencies_hz,
+        mode_shapes,
+        free_dofs,
+    }
 }
 
 /// Classic cyclic Jacobi eigenvalue algorithm for a dense symmetric `n×n`
@@ -186,11 +214,7 @@ mod tests {
 
     #[test]
     fn jacobi_recovers_known_eigenvalues_of_diagonal_matrix() {
-        let a = vec![
-            5.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 3.0,
-        ];
+        let a = vec![5.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 3.0];
         let (vals, _vecs) = jacobi_eigen(&a, 3);
         assert!((vals[0] - 1.0).abs() < 1e-9);
         assert!((vals[1] - 3.0).abs() < 1e-9);
@@ -215,16 +239,28 @@ mod tests {
         let mut s = Solid::new();
         let mut v = |x, y, z| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(0.0, 0.0, 0.0), v(l, 0.0, 0.0), v(l, 1.0, 0.0), v(0.0, 1.0, 0.0),
-            v(0.0, 0.0, 1.0), v(l, 0.0, 1.0), v(l, 1.0, 1.0), v(0.0, 1.0, 1.0),
+            v(0.0, 0.0, 0.0),
+            v(l, 0.0, 0.0),
+            v(l, 1.0, 0.0),
+            v(0.0, 1.0, 0.0),
+            v(0.0, 0.0, 1.0),
+            v(l, 0.0, 1.0),
+            v(l, 1.0, 1.0),
+            v(0.0, 1.0, 1.0),
         ];
         let mut f = |a, b, c| s.faces.push(Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 
@@ -232,7 +268,13 @@ mod tests {
     fn cantilever_first_mode_is_positive_and_finite() {
         let solid = beam(4.0);
         let m = crate::mesh::tetrahedralize(&solid, 1.0).unwrap();
-        let fixed: Vec<usize> = m.nodes.iter().enumerate().filter(|(_, n)| n[0] < 1e-6).map(|(i, _)| i).collect();
+        let fixed: Vec<usize> = m
+            .nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| n[0] < 1e-6)
+            .map(|(i, _)| i)
+            .collect();
         let res = modal_analysis(&m, 200_000.0, 0.3, 7.85e-3, &fixed);
         assert!(!res.frequencies_hz.is_empty());
         let f1 = res.frequencies_hz[0];
@@ -243,7 +285,13 @@ mod tests {
     fn stiffer_material_has_higher_natural_frequency() {
         let solid = beam(4.0);
         let m = crate::mesh::tetrahedralize(&solid, 1.0).unwrap();
-        let fixed: Vec<usize> = m.nodes.iter().enumerate().filter(|(_, n)| n[0] < 1e-6).map(|(i, _)| i).collect();
+        let fixed: Vec<usize> = m
+            .nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| n[0] < 1e-6)
+            .map(|(i, _)| i)
+            .collect();
         // Same density, stiffer modulus (steel vs. a soft plastic) should raise f1.
         let soft = modal_analysis(&m, 2_000.0, 0.35, 1.2e-3, &fixed);
         let stiff = modal_analysis(&m, 200_000.0, 0.3, 7.85e-3, &fixed);
