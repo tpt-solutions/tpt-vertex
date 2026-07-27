@@ -6,6 +6,7 @@ use crate::adaptive::AdaptiveLayerSettings;
 use crate::bridging::BridgeSettings;
 use crate::seam::SeamMode;
 use crate::support::SupportSettings;
+use crate::tree_support::TreeSupportSettings;
 use crate::variable_width::VariableWidthSettings;
 
 /// A configurable FDM printer profile (dimensions, kinematics, temperatures).
@@ -224,8 +225,13 @@ pub struct SliceSettings {
     pub top_bottom_layers: usize,
     /// Default body role applied to all regions when no tagging is supplied.
     pub default_role: BodyRole,
-    /// Basic overhang-triggered support generation; `None` disables supports.
+    /// Basic overhang-triggered support generation; `None` disables basic
+    /// (grid/pillar) supports. When both `supports` and `tree_supports` are
+    /// `Some`, tree supports are preferred.
     pub supports: Option<SupportSettings>,
+    /// Tree / organic support generation; `None` disables tree supports.
+    /// When set, these are used instead of the basic pillar supports.
+    pub tree_supports: Option<TreeSupportSettings>,
     /// Adaptive layer height driven by local surface slope; `None` uses the
     /// fixed `layer_height` uniformly.
     pub adaptive_layers: Option<AdaptiveLayerSettings>,
@@ -254,6 +260,7 @@ impl Default for SliceSettings {
             top_bottom_layers: 3,
             default_role: BodyRole::Structural,
             supports: None,
+            tree_supports: None,
             adaptive_layers: None,
             bridging: None,
             seam: None,

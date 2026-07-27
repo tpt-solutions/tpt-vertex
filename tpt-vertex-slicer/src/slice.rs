@@ -2,6 +2,7 @@
 //!
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
+use tpt_vertex_kernel::feature_tree::FeatureTree;
 use tpt_vertex_kernel::geometry::solid::Solid;
 
 use crate::adaptive::adaptive_layer_zs;
@@ -15,6 +16,7 @@ use crate::profile::{MaterialCalibration, PrinterProfile, RegionTag, SliceSettin
 use crate::repair::repair_mesh;
 use crate::seam::place_seam;
 use crate::support::generate_supports;
+use crate::tree_support::generate_tree_supports;
 use crate::variable_width::thin_wall_fill;
 
 /// The full product of a slice: per-layer plans and the emitted G-code.
@@ -22,6 +24,14 @@ use crate::variable_width::thin_wall_fill;
 pub struct SliceResult {
     pub layers: Vec<LayerPlan>,
     pub gcode: GCode,
+}
+
+/// Internal enum to carry either basic or tree support data through the slice
+/// pipeline without boxing.
+#[derive(Debug)]
+enum SupportEnum {
+    Basic((Vec<crate::support::SupportLayer>, crate::support::SupportSettings)),
+    Tree(Vec<crate::tree_support::TreeSupportLayer>),
 }
 
 /// Slice a kernel solid into printable G-code.
@@ -76,10 +86,14 @@ pub fn slice_solid_to_gcode(
     let width = printer.extrusion_width();
     let line_spacing = width * settings.infill_line_spacing_factor;
 
-    let support_layers = settings
-        .supports
-        .as_ref()
-        .map(|s| generate_supports(&raw_layers, s));
+    let support_layers = if let Some(ts) = &settings.tree_supports {
+        Some(crate::tree_support::generate_tree_supports(&raw_layers, ts))
+            .map(SupportEnum::Tree)
+    } else if let Some(s) = &settings.supports {
+        Some(generate_supports(&raw_layers, s)).map(SupportEnum::Basic)
+    } else {
+        None
+    };
 
     let no_contours: Vec<Contour> = Vec::new();
 
@@ -188,11 +202,18 @@ pub fn slice_solid_to_gcode(
             }
         }
 
-        if let (Some(support_layers), Some(support_settings)) =
-            (support_layers.as_ref(), settings.supports.as_ref())
-        {
-            if let Some(support_layer) = support_layers.get(li) {
-                perimeters.extend(support_layer.to_paths(support_settings.pillar_half_width));
+        if let Some(support) = support_layers.as_ref() {
+            match support {
+                SupportEnum::Basic((support_layers, support_settings)) => {
+                    if let Some(support_layer) = support_layers.get(li) {
+                        perimeters.extend(support_layer.to_paths(support_settings.pillar_half_width));
+                    }
+                }
+                SupportEnum::Tree(tree_layers) => {
+                    if let Some(tree_layer) = tree_layers.get(li) {
+                        perimeters.extend(tree_layer.paths.clone());
+                    }
+                }
             }
         }
 
@@ -218,6 +239,59 @@ pub fn slice_solid(solid: &Solid) -> SliceResult {
         None,
         None,
     )
+}
+
+/// Slice a [`FeatureTree`] directly: evaluate the tree, then slice the
+/// resulting solid.  This is the entry point for feature-tree-native slicing,
+/// enabling live collaborative preview where the CRDT state holds a feature
+/// tree rather than a pre-evaluated mesh.
+pub fn slice_feature_tree(
+    tree: &FeatureTree,
+    printer: &PrinterProfile,
+    settings: &SliceSettings,
+    material: &MaterialCalibration,
+    regions: Option<&[Vec<RegionTag>]>,
+    stress: Option<&dyn Fn(f64, f64, f64) -> f64>,
+) -> Result<SliceResult, tpt_vertex_kernel::feature_tree::EvalError> {
+    let eval = tree.evaluate()?;
+    Ok(slice_solid_to_gcode(
+        &eval.final_solid,
+        printer,
+        settings,
+        material,
+        regions,
+        stress,
+    ))
+}
+
+/// Convenience: slice a feature tree with defaults.
+pub fn slice_feature_tree_simple(tree: &FeatureTree) -> SliceResult {
+    slice_feature_tree(
+        tree,
+        &PrinterProfile::default(),
+        &SliceSettings::default(),
+        &MaterialCalibration::default(),
+        None,
+        None,
+    )
+    .unwrap_or_else(|_| SliceResult {
+        layers: Vec::new(),
+        gcode: GCode::default(),
+    })
+}
+
+/// Incrementally re-slice a feature tree after a parameter change.  Returns
+/// `None` if the tree cannot be evaluated (e.g. cycle or missing parent);
+/// otherwise returns the new [`SliceResult`].  Callers may compare the
+/// result's `gcode.estimated_filament_mm` or `layers.len()` to the previous
+/// value to decide whether the UI needs updating.
+pub fn reslice_after_edit(
+    tree: &FeatureTree,
+    printer: &PrinterProfile,
+    settings: &SliceSettings,
+    material: &MaterialCalibration,
+) -> Option<SliceResult> {
+    slice_feature_tree(tree, printer, settings, material, None, None).ok()
 }
 
 #[cfg(test)]
@@ -430,5 +504,59 @@ mod tests {
             None,
         );
         assert!(res_stressed.gcode.estimated_filament_mm > res_plain.gcode.estimated_filament_mm);
+    }
+
+    #[test]
+    fn slice_feature_tree_produces_gcode() {
+        use tpt_vertex_kernel::geometry::sketch::Sketch;
+        use tpt_vertex_kernel::math::Vec2;
+        let mut sketch = Sketch::new();
+        sketch.line(Vec2::ZERO, Vec2::new(10.0, 0.0));
+        sketch.line(Vec2::new(10.0, 0.0), Vec2::new(10.0, 10.0));
+        sketch.line(Vec2::new(10.0, 10.0), Vec2::new(0.0, 10.0));
+        sketch.line(Vec2::new(0.0, 10.0), Vec2::ZERO);
+        let mut tree = FeatureTree::new();
+        tree.add(
+            tpt_vertex_kernel::feature_tree::Feature::Extrude {
+                sketch,
+                height: 5.0,
+            },
+            None,
+        );
+        let res = slice_feature_tree_simple(&tree);
+        assert!(res.layers.len() >= 10);
+        assert!(res.gcode.text.contains("G1 X"));
+        assert!(res.gcode.estimated_filament_mm > 0.0);
+    }
+
+    #[test]
+    fn reslice_after_edit_returns_some() {
+        use tpt_vertex_kernel::feature_tree::{Feature, FeatureTree};
+        use tpt_vertex_kernel::geometry::sketch::Sketch;
+        use tpt_vertex_kernel::math::Vec2;
+        let mut sketch = Sketch::new();
+        sketch.line(Vec2::ZERO, Vec2::new(5.0, 0.0));
+        sketch.line(Vec2::new(5.0, 0.0), Vec2::new(5.0, 5.0));
+        sketch.line(Vec2::new(5.0, 5.0), Vec2::ZERO);
+        let mut tree = FeatureTree::new();
+        let id = tree.add(
+            Feature::Extrude {
+                sketch,
+                height: 2.0,
+            },
+            None,
+        );
+        let res1 = reslice_after_edit(&tree, &PrinterProfile::default(), &SliceSettings::default(), &MaterialCalibration::default());
+        assert!(res1.is_some());
+        // Change the height parameter.
+        let mut sketch2 = Sketch::new();
+        sketch2.line(Vec2::ZERO, Vec2::new(5.0, 0.0));
+        sketch2.line(Vec2::new(5.0, 0.0), Vec2::new(5.0, 5.0));
+        sketch2.line(Vec2::new(5.0, 5.0), Vec2::ZERO);
+        tree.update(id, Feature::Extrude { sketch: sketch2, height: 10.0 });
+        let res2 = reslice_after_edit(&tree, &PrinterProfile::default(), &SliceSettings::default(), &MaterialCalibration::default());
+        assert!(res2.is_some());
+        let res2 = res2.unwrap();
+        assert!(res2.gcode.estimated_filament_mm > res1.unwrap().gcode.estimated_filament_mm);
     }
 }

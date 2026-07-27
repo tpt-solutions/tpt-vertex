@@ -26,8 +26,10 @@
 //! a tiny local mock HTTP server — no external mocks required.
 
 pub mod client;
+pub mod discovery;
 pub mod esp3d;
 pub mod octoprint;
+pub mod stream;
 pub mod target;
 pub mod transport;
 
@@ -38,7 +40,9 @@ pub use client::{
     ConnectionInfo, JobProgress, PrinterClient, PrinterError, PrinterState, StatusSnapshot,
     Temperature, TEMPERATURE_AMBIENT, make_client,
 };
+pub use discovery::{DiscoveredPrinter, DiscoveryResult};
 pub use esp3d::Esp3dClient;
 pub use octoprint::OctoPrintClient;
+pub use stream::{GCodeStreamer, StreamConfig};
 pub use target::{PrinterTarget, ProtocolKind};
 pub use transport::{HttpTransport, ReqwestTransport};

@@ -15,6 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 
+mod keychain;
 mod printer;
 
 use tpt_vertex_kernel::feature_tree::{Feature, FeatureTree};

@@ -3,7 +3,9 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
 pub mod assembly;
+pub mod design_table;
 pub mod feature_tree;
+pub mod gdt;
 pub mod geometry;
 pub mod material;
 pub mod math;

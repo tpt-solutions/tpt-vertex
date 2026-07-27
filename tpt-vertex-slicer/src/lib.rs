@@ -38,6 +38,7 @@ pub mod repair;
 pub mod seam;
 pub mod slice;
 pub mod support;
+pub mod tree_support;
 pub mod variable_width;
 
 pub use adaptive::{adaptive_layer_zs, AdaptiveLayerSettings};
@@ -49,4 +50,5 @@ pub use repair::{repair_mesh, RepairReport};
 pub use seam::SeamMode;
 pub use slice::{slice_solid, SliceResult};
 pub use support::{generate_supports, SupportSettings};
+pub use tree_support::{generate_tree_supports, TreeSupportSettings};
 pub use variable_width::VariableWidthSettings;

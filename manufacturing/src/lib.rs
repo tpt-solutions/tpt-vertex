@@ -9,16 +9,20 @@
 //! (orthographic SVG) generation.
 
 pub mod bom;
+pub mod cam;
 pub mod drawing;
 pub mod export;
 pub mod plugin;
+pub mod sheet_metal;
 pub mod step;
 
 pub use bom::{BomEntry, BomReport};
+pub use cam::{CamJob, CamPt, ToolMove, Toolpath, job_from_solid, rect_pocket};
 pub use export::{export_gltf, export_obj, write_stl_ascii, write_stl_binary, StlError};
 pub use plugin::{
     ExporterPlugin, ImporterPlugin, PluginError, PluginInfo, PluginRegistry, ToolPlugin,
 };
+pub use sheet_metal::{bend_allowance_length, FlatPattern, SheetMetalConfig};
 pub use step::{export_step, import_step};
 
 #[cfg(test)]

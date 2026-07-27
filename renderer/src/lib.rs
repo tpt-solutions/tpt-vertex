@@ -12,6 +12,7 @@
 
 pub mod camera;
 pub mod culling;
+pub mod materials;
 pub mod mesh;
 pub mod picking;
 pub mod renderer;
