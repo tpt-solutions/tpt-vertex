@@ -166,7 +166,10 @@ impl DesignTable {
 
     /// Extract the current parameter values from a feature tree for the given
     /// feature ids, using the same `"feature_id.param"` naming convention.
-    pub fn extract_params(tree: &FeatureTree, feature_ids: &[FeatureId]) -> HashMap<String, ParamValue> {
+    pub fn extract_params(
+        tree: &FeatureTree,
+        feature_ids: &[FeatureId],
+    ) -> HashMap<String, ParamValue> {
         let mut params = HashMap::new();
         for &fid in feature_ids {
             if let Some(feature) = tree.get(fid) {
@@ -174,6 +177,146 @@ impl DesignTable {
             }
         }
         params
+    }
+
+    /// Export the design table to CSV format.
+    ///
+    /// The CSV has:
+    /// - First column: `Configuration`
+    /// - Remaining columns: one per parameter key (sorted alphabetically)
+    /// - Each row: a configuration's name followed by its parameter values
+    pub fn to_csv(&self) -> String {
+        // Collect all parameter keys across all configurations.
+        let mut all_keys: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        for config in &self.configurations {
+            for key in config.params.keys() {
+                all_keys.insert(key.clone());
+            }
+        }
+        let keys: Vec<String> = all_keys.into_iter().collect();
+
+        let mut csv = String::from("Configuration");
+        for key in &keys {
+            csv.push(',');
+            csv.push_str(key);
+        }
+        csv.push('\n');
+
+        for config in &self.configurations {
+            csv.push_str(&config.name);
+            for key in &keys {
+                csv.push(',');
+                if let Some(val) = config.params.get(key) {
+                    match val {
+                        ParamValue::Float(f) => csv.push_str(&format!("{f}")),
+                        ParamValue::Int(i) => csv.push_str(&format!("{i}")),
+                        ParamValue::Bool(b) => csv.push_str(if *b { "true" } else { "false" }),
+                        ParamValue::Text(s) => {
+                            // Escape commas and quotes in text values.
+                            if s.contains(',') || s.contains('"') {
+                                csv.push('"');
+                                csv.push_str(&s.replace('"', "\"\""));
+                                csv.push('"');
+                            } else {
+                                csv.push_str(s);
+                            }
+                        }
+                    }
+                }
+            }
+            csv.push('\n');
+        }
+
+        csv
+    }
+
+    /// Import a design table from CSV format.
+    ///
+    /// Expects the same format as [`to_csv`]: first column is the configuration
+    /// name, remaining columns are parameter keys.
+    pub fn from_csv(csv: &str) -> Result<Self, String> {
+        let mut lines = csv.lines();
+        let header = lines.next().ok_or("empty CSV")?;
+        let keys: Vec<String> = header
+            .split(',')
+            .skip(1) // Skip "Configuration" column
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if keys.is_empty() {
+            return Err("no parameter columns found in CSV header".to_string());
+        }
+
+        let mut table = DesignTable::new();
+
+        for line in lines {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let values: Vec<&str> = parse_csv_line(line);
+            if values.is_empty() {
+                continue;
+            }
+            let name = values[0].trim().to_string();
+            let mut config = Configuration::new(name);
+
+            for (i, key) in keys.iter().enumerate() {
+                if i + 1 < values.len() {
+                    let raw = values[i + 1].trim();
+                    if raw.is_empty() {
+                        continue;
+                    }
+                    // Try to parse as f64 first, then as bool, then as text.
+                    if let Ok(f) = raw.parse::<f64>() {
+                        config.params.insert(key.clone(), ParamValue::Float(f));
+                    } else if raw.eq_ignore_ascii_case("true") {
+                        config.params.insert(key.clone(), ParamValue::Bool(true));
+                    } else if raw.eq_ignore_ascii_case("false") {
+                        config.params.insert(key.clone(), ParamValue::Bool(false));
+                    } else {
+                        config
+                            .params
+                            .insert(key.clone(), ParamValue::Text(raw.to_string()));
+                    }
+                }
+            }
+
+            table.add(config);
+        }
+
+        Ok(table)
+    }
+}
+
+/// Parse a CSV line respecting quoted fields.
+fn parse_csv_line(line: &str) -> Vec<&str> {
+    let mut fields = Vec::new();
+    let mut start = 0;
+    let mut in_quotes = false;
+
+    for (i, c) in line.char_indices() {
+        match c {
+            '"' => in_quotes = !in_quotes,
+            ',' if !in_quotes => {
+                let field = &line[start..i];
+                fields.push(strip_quotes(field));
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    fields.push(strip_quotes(&line[start..]));
+    fields
+}
+
+/// Strip leading/trailing double-quotes from a CSV field value.
+fn strip_quotes(field: &str) -> &str {
+    if field.starts_with('"') && field.ends_with('"') && field.len() >= 2 {
+        &field[1..field.len() - 1]
+    } else {
+        field
     }
 }
 
@@ -247,13 +390,19 @@ fn apply_param(feature: &mut Feature, param: &str, value: &ParamValue) {
 }
 
 /// Extract feature parameters into the param map using the `"id.param"` convention.
-fn extract_feature_params(fid: FeatureId, feature: &Feature, out: &mut HashMap<String, ParamValue>) {
+fn extract_feature_params(
+    fid: FeatureId,
+    feature: &Feature,
+    out: &mut HashMap<String, ParamValue>,
+) {
     let id = fid.0;
     match feature {
         Feature::Extrude { height, .. } => {
             out.insert(format!("{id}.height"), ParamValue::Float(*height));
         }
-        Feature::Revolve { angle, segments, .. } => {
+        Feature::Revolve {
+            angle, segments, ..
+        } => {
             out.insert(format!("{id}.angle"), ParamValue::Float(*angle));
             out.insert(format!("{id}.segments"), ParamValue::Int(*segments as i64));
         }
@@ -266,7 +415,11 @@ fn extract_feature_params(fid: FeatureId, feature: &Feature, out: &mut HashMap<S
         Feature::Loft { height, .. } => {
             out.insert(format!("{id}.height"), ParamValue::Float(*height));
         }
-        Feature::Transform { translation, rotation, .. } => {
+        Feature::Transform {
+            translation,
+            rotation,
+            ..
+        } => {
             out.insert(format!("{id}.tx"), ParamValue::Float(translation.x));
             out.insert(format!("{id}.ty"), ParamValue::Float(translation.y));
             out.insert(format!("{id}.tz"), ParamValue::Float(translation.z));
@@ -317,18 +470,15 @@ mod tests {
         let v1 = tree.evaluate().unwrap().final_solid.volume().abs();
 
         let mut table = DesignTable::new();
-        table.add(
-            Configuration::new("Tall")
-                .with_float(&format!("{id}.height"), 10.0),
-        );
+        table.add(Configuration::new("Tall").with_float(format!("{}.height", id.0), 10.0));
         table.set_active(0);
         let applied = table.apply_active(&mut tree).unwrap();
         assert_eq!(applied, 1);
 
         let v2 = tree.evaluate().unwrap().final_solid.volume().abs();
-        // Original: 2*2*2 = 8, new: 2*2*10 = 40
-        assert!((v1 - 8.0).abs() < 1e-6);
-        assert!((v2 - 40.0).abs() < 1e-6);
+        // Original: triangle area 2 × height 2 = 4, new: area 2 × height 10 = 20
+        assert!((v1 - 4.0).abs() < 1e-6);
+        assert!((v2 - 20.0).abs() < 1e-6);
     }
 
     #[test]
@@ -343,7 +493,7 @@ mod tests {
         );
         let params = DesignTable::extract_params(&tree, &[id]);
         assert_eq!(
-            params.get(&format!("{id}.height")),
+            params.get(&format!("{}.height", id.0)),
             Some(&ParamValue::Float(3.0))
         );
     }
@@ -356,5 +506,52 @@ mod tests {
         assert!(table.active().is_some());
         table.remove(0);
         assert!(table.active().is_none());
+    }
+
+    #[test]
+    fn csv_round_trip() {
+        let mut table = DesignTable::new();
+        table.add(
+            Configuration::new("Small")
+                .with_float("0.height", 1.0)
+                .with_float("0.radius", 0.5),
+        );
+        table.add(
+            Configuration::new("Large")
+                .with_float("0.height", 5.0)
+                .with_float("0.radius", 2.0),
+        );
+
+        let csv = table.to_csv();
+        assert!(csv.contains("Configuration,0.height,0.radius"));
+        assert!(csv.contains("Small,1,0.5"));
+        assert!(csv.contains("Large,5,2"));
+
+        let table2 = DesignTable::from_csv(&csv).unwrap();
+        assert_eq!(table2.configurations().len(), 2);
+        assert_eq!(table2.configurations()[0].name, "Small");
+        assert_eq!(
+            table2.configurations()[0].params.get("0.height"),
+            Some(&ParamValue::Float(1.0))
+        );
+        assert_eq!(
+            table2.configurations()[1].params.get("0.radius"),
+            Some(&ParamValue::Float(2.0))
+        );
+    }
+
+    #[test]
+    fn csv_handles_text_values_with_commas() {
+        let mut table = DesignTable::new();
+        table.add(
+            Configuration::new("Test")
+                .with_param("name", ParamValue::Text("hello, world".to_string())),
+        );
+        let csv = table.to_csv();
+        let table2 = DesignTable::from_csv(&csv).unwrap();
+        assert_eq!(
+            table2.configurations()[0].params.get("name"),
+            Some(&ParamValue::Text("hello, world".to_string()))
+        );
     }
 }

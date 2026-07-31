@@ -3,6 +3,7 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
 use crate::esp3d::Esp3dClient;
+use crate::moonraker::MoonrakerClient;
 use crate::octoprint::OctoPrintClient;
 use crate::target::{PrinterTarget, ProtocolKind};
 use crate::transport::{HttpTransport, ReqwestTransport};
@@ -174,5 +175,6 @@ pub fn make_client(target: &PrinterTarget) -> Result<Box<dyn PrinterClient>, Pri
         ProtocolKind::MoonrakerCompat => {
             Box::new(OctoPrintClient::new(target.clone(), transport, true))
         }
+        ProtocolKind::MoonrakerNative => Box::new(MoonrakerClient::new(target.clone(), transport)),
     })
 }

@@ -60,7 +60,12 @@ fn max_height_for_angle(theta: f64, settings: &AdaptiveLayerSettings) -> f64 {
 /// surface slope, covering `[z_min, z_max]` at `settings.sample_height`
 /// resolution. Bands with no covering facet (shouldn't occur for a closed
 /// solid) default to `max_layer_height`.
-fn slope_profile(solid: &Solid, z_min: f64, z_max: f64, settings: &AdaptiveLayerSettings) -> Vec<f64> {
+fn slope_profile(
+    solid: &Solid,
+    z_min: f64,
+    z_max: f64,
+    settings: &AdaptiveLayerSettings,
+) -> Vec<f64> {
     let step = settings.sample_height.max(1e-3);
     let n = (((z_max - z_min) / step).ceil() as usize) + 1;
     let mut profile = vec![settings.max_layer_height; n.max(1)];
@@ -112,8 +117,8 @@ pub fn adaptive_layer_zs(
     let profile = slope_profile(solid, z_min, z_max, settings);
     let step = settings.sample_height.max(1e-3);
     let lookup = |z: f64| -> f64 {
-        let idx = (((z - z_min) / step).round() as isize)
-            .clamp(0, profile.len() as isize - 1) as usize;
+        let idx =
+            (((z - z_min) / step).round() as isize).clamp(0, profile.len() as isize - 1) as usize;
         profile[idx].clamp(settings.min_layer_height, settings.max_layer_height)
     };
 
@@ -144,16 +149,28 @@ mod tests {
         let (x1, y1, z1) = (half, half, height);
         let mut v = |x: f64, y: f64, z: f64| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(x0, y0, z0), v(x1, y0, z0), v(x1, y1, z0), v(x0, y1, z0),
-            v(x0, y0, z1), v(x1, y0, z1), v(x1, y1, z1), v(x0, y1, z1),
+            v(x0, y0, z0),
+            v(x1, y0, z0),
+            v(x1, y1, z0),
+            v(x0, y1, z0),
+            v(x0, y0, z1),
+            v(x1, y0, z1),
+            v(x1, y1, z1),
+            v(x0, y1, z1),
         ];
         let mut f = |a: u32, b: u32, c: u32| s.faces.push(Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 

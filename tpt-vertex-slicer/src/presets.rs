@@ -24,16 +24,28 @@ pub fn export_preset(printer: &PrinterProfile) -> String {
     out.push_str(&format!("max_velocity: {:.3}\n", printer.travel_speed));
     out.push('\n');
     out.push_str("[extruder]\n");
-    out.push_str(&format!("nozzle_diameter: {:.3}\n", printer.nozzle_diameter));
-    out.push_str(&format!("filament_diameter: {:.3}\n", printer.filament_diameter));
-    out.push_str(&format!("max_extrude_only_velocity: {:.3}\n", printer.print_speed));
+    out.push_str(&format!(
+        "nozzle_diameter: {:.3}\n",
+        printer.nozzle_diameter
+    ));
+    out.push_str(&format!(
+        "filament_diameter: {:.3}\n",
+        printer.filament_diameter
+    ));
+    out.push_str(&format!(
+        "max_extrude_only_velocity: {:.3}\n",
+        printer.print_speed
+    ));
     out.push_str(&format!("temperature: {:.1}\n", printer.nozzle_temperature));
     out.push('\n');
     out.push_str("[heater_bed]\n");
     out.push_str(&format!("temperature: {:.1}\n", printer.bed_temperature));
     out.push('\n');
     out.push_str("[firmware_retraction]\n");
-    out.push_str(&format!("retract_length: {:.3}\n", printer.retraction_length));
+    out.push_str(&format!(
+        "retract_length: {:.3}\n",
+        printer.retraction_length
+    ));
     out.push_str(&format!("retract_speed: {:.3}\n", printer.retraction_speed));
     out.push_str(&format!("lift_z: {:.3}\n", printer.z_hop));
     out

@@ -17,7 +17,7 @@ pub mod sheet_metal;
 pub mod step;
 
 pub use bom::{BomEntry, BomReport};
-pub use cam::{CamJob, CamPt, ToolMove, Toolpath, job_from_solid, rect_pocket};
+pub use cam::{job_from_solid, rect_pocket, CamJob, CamPt, ToolMove, Toolpath};
 pub use export::{export_gltf, export_obj, write_stl_ascii, write_stl_binary, StlError};
 pub use plugin::{
     ExporterPlugin, ImporterPlugin, PluginError, PluginInfo, PluginRegistry, ToolPlugin,

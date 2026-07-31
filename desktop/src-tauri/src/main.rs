@@ -411,7 +411,15 @@ fn main() {
             printer::delete_printer,
             printer::test_printer,
             printer::send_to_printer,
-            printer::printer_status
+            printer::printer_status,
+            printer::discover_printers,
+            printer::set_printer_key,
+            printer::get_printer_key,
+            printer::delete_printer_key,
+            printer::stream_gcode,
+            printer::cancel_print,
+            printer::pause_print,
+            printer::resume_print
         ])
         .run(tauri::generate_context!())
         .expect("error while running TPT Vertex desktop");

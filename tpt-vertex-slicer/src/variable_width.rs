@@ -114,10 +114,16 @@ mod tests {
         let width = 0.48;
         let c = square(1.0);
         let walls = walls_for(&c, 3, width);
-        assert!(walls.len() < 3, "expected the walls to collapse before 3 fit");
+        assert!(
+            walls.len() < 3,
+            "expected the walls to collapse before 3 fit"
+        );
         let last_d = width * (walls.len() as f64 - 0.5).max(0.0);
         let fill = thin_wall_fill(&c, last_d, width, &VariableWidthSettings::default());
-        assert!(fill.is_some(), "expected a thin-wall fill for the residual sliver");
+        assert!(
+            fill.is_some(),
+            "expected a thin-wall fill for the residual sliver"
+        );
         let fill = fill.unwrap();
         assert!(fill.width > 0.0);
         assert!(fill.path.points.len() >= 3);

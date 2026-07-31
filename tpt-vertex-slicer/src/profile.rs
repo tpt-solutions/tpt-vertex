@@ -92,7 +92,9 @@ impl PrinterProfile {
 
     /// XY nozzle offset for `tool`, in millimetres, relative to tool 0.
     pub fn tool_offset(&self, tool: usize) -> (f64, f64) {
-        self.extruder(tool).map(|e| (e.x_offset, e.y_offset)).unwrap_or((0.0, 0.0))
+        self.extruder(tool)
+            .map(|e| (e.x_offset, e.y_offset))
+            .unwrap_or((0.0, 0.0))
     }
 
     /// Nozzle temperature for `tool`, falling back to the printer's default.

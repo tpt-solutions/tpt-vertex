@@ -6,7 +6,7 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
 use tpt_vertex_kernel::geometry::solid::Solid;
-use tpt_vertex_manufacturing::plugin::{ExporterPlugin, PluginInfo, PluginError};
+use tpt_vertex_manufacturing::plugin::{ExporterPlugin, PluginError, PluginInfo};
 
 use crate::profile::{MaterialCalibration, PrinterProfile, SliceSettings};
 use crate::slice::slice_solid_to_gcode;
@@ -58,16 +58,28 @@ mod tests {
         let mut s = Solid::new();
         let mut v = |x: f64, y: f64, z: f64| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(-5.0, -5.0, 0.0), v(5.0, -5.0, 0.0), v(5.0, 5.0, 0.0), v(-5.0, 5.0, 0.0),
-            v(-5.0, -5.0, 10.0), v(5.0, -5.0, 10.0), v(5.0, 5.0, 10.0), v(-5.0, 5.0, 10.0),
+            v(-5.0, -5.0, 0.0),
+            v(5.0, -5.0, 0.0),
+            v(5.0, 5.0, 0.0),
+            v(-5.0, 5.0, 0.0),
+            v(-5.0, -5.0, 10.0),
+            v(5.0, -5.0, 10.0),
+            v(5.0, 5.0, 10.0),
+            v(-5.0, 5.0, 10.0),
         ];
         let mut f = |a: u32, b: u32, c: u32| s.faces.push(Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 

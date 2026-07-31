@@ -114,7 +114,11 @@ mod tests {
         let c = square(2.0);
         let inset = offset_contour(&c, -0.5);
         // 4x4 square (area 16) inset by 0.5 on each side => 3x3 (area 9).
-        assert!((inset.signed_area().abs() - 9.0).abs() < 1e-6, "area {}", inset.signed_area());
+        assert!(
+            (inset.signed_area().abs() - 9.0).abs() < 1e-6,
+            "area {}",
+            inset.signed_area()
+        );
     }
 
     #[test]

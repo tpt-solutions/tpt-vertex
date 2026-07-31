@@ -11,7 +11,9 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::time::Duration;
 
-use tpt_vertex_printer_link::{make_client, PrinterTarget, ProtocolKind, PrinterError, PrinterState};
+use tpt_vertex_printer_link::{
+    make_client, PrinterError, PrinterState, PrinterTarget, ProtocolKind,
+};
 
 /// A request target (e.g. `/api/version` or `/?cmd=M115`) maps to a
 /// `(status_code, body)` response from the mock server.
@@ -21,10 +23,8 @@ fn spawn_server(route: Route) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock server");
     let addr = listener.local_addr().unwrap();
     std::thread::spawn(move || {
-        for stream in listener.incoming() {
-            if let Ok(mut s) = stream {
-                serve_one(&mut s, &route);
-            }
+        for mut s in listener.incoming().flatten() {
+            serve_one(&mut s, &route);
         }
     });
     format!("http://{addr}")
@@ -150,7 +150,10 @@ fn octoprint_over_real_http_server() {
     let printer = r#"{"state":{"text":"Printing","flags":{"operational":true,"printing":true,"paused":false}},"temperature":{"tool0":{"actual":205.0,"target":210.0},"bed":{"actual":59.0,"target":60.0}}}"#;
     let job = r#"{"job":{"file":{"name":"part.gcode"}},"progress":{"completion":42.0,"printTimeLeft":600}}"#;
     let route: Route = Arc::new(move |t| match t {
-        "/api/version" => (200, r#"{"server":"OctoPrint","version":"1.9.0","api":"0.1"}"#.into()),
+        "/api/version" => (
+            200,
+            r#"{"server":"OctoPrint","version":"1.9.0","api":"0.1"}"#.into(),
+        ),
         "/api/printer" => (200, printer.to_string()),
         "/api/job" => (200, job.to_string()),
         "/api/files/local" => (201, "{}".into()),
@@ -158,7 +161,13 @@ fn octoprint_over_real_http_server() {
         _ => (404, String::new()),
     });
     let base = spawn_server(route);
-    let target = PrinterTarget::new("octo", "Octo", ProtocolKind::OctoPrint, base, Some("KEY".into()));
+    let target = PrinterTarget::new(
+        "octo",
+        "Octo",
+        ProtocolKind::OctoPrint,
+        base,
+        Some("KEY".into()),
+    );
     let client = make_client(&target).unwrap();
 
     let info = client.test_connection().unwrap();
@@ -179,17 +188,34 @@ fn octoprint_over_real_http_server() {
 fn moonraker_compat_uses_octoprint_client() {
     let route: Route = Arc::new(|t| match t {
         "/api/version" => (200, r#"{"version":"0.8.0"}"#.into()),
-        "/api/printer" => (200, r#"{"state":{"flags":{"operational":true}},"temperature":{}}"#.into()),
+        "/api/printer" => (
+            200,
+            r#"{"state":{"flags":{"operational":true}},"temperature":{}}"#.into(),
+        ),
         "/api/job" => (200, r#"{"progress":{}}"#.into()),
         "/api/files/local" => (201, "{}".into()),
         "/api/printer/command" => (204, String::new()),
         _ => (404, String::new()),
     });
     let base = spawn_server(route);
-    let target = PrinterTarget::new("moon", "Moon", ProtocolKind::MoonrakerCompat, base, Some("K".into()));
+    let target = PrinterTarget::new(
+        "moon",
+        "Moon",
+        ProtocolKind::MoonrakerCompat,
+        base,
+        Some("K".into()),
+    );
     let client = make_client(&target).unwrap();
-    assert_eq!(client.connection_info().protocol, ProtocolKind::MoonrakerCompat);
-    assert!(client.test_connection().unwrap().firmware.unwrap().contains("Moonraker"));
+    assert_eq!(
+        client.connection_info().protocol,
+        ProtocolKind::MoonrakerCompat
+    );
+    assert!(client
+        .test_connection()
+        .unwrap()
+        .firmware
+        .unwrap()
+        .contains("Moonraker"));
 }
 
 #[test]
@@ -201,7 +227,10 @@ fn connection_refused_is_transport_error() {
     let base = format!("http://{addr}");
     let target = PrinterTarget::new("x", "X", ProtocolKind::Esp3d, base, None);
     let client = make_client(&target).unwrap();
-    assert!(matches!(client.test_connection(), Err(PrinterError::Transport(_))));
+    assert!(matches!(
+        client.test_connection(),
+        Err(PrinterError::Transport(_))
+    ));
 }
 
 #[test]

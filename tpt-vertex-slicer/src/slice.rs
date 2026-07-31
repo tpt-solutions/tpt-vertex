@@ -16,7 +16,6 @@ use crate::profile::{MaterialCalibration, PrinterProfile, RegionTag, SliceSettin
 use crate::repair::repair_mesh;
 use crate::seam::place_seam;
 use crate::support::generate_supports;
-use crate::tree_support::generate_tree_supports;
 use crate::variable_width::thin_wall_fill;
 
 /// The full product of a slice: per-layer plans and the emitted G-code.
@@ -30,7 +29,12 @@ pub struct SliceResult {
 /// pipeline without boxing.
 #[derive(Debug)]
 enum SupportEnum {
-    Basic((Vec<crate::support::SupportLayer>, crate::support::SupportSettings)),
+    Basic(
+        (
+            Vec<crate::support::SupportLayer>,
+            crate::support::SupportSettings,
+        ),
+    ),
     Tree(Vec<crate::tree_support::TreeSupportLayer>),
 }
 
@@ -87,10 +91,12 @@ pub fn slice_solid_to_gcode(
     let line_spacing = width * settings.infill_line_spacing_factor;
 
     let support_layers = if let Some(ts) = &settings.tree_supports {
-        Some(crate::tree_support::generate_tree_supports(&raw_layers, ts))
-            .map(SupportEnum::Tree)
+        Some(SupportEnum::Tree(
+            crate::tree_support::generate_tree_supports(&raw_layers, ts),
+        ))
     } else if let Some(s) = &settings.supports {
-        Some(generate_supports(&raw_layers, s)).map(SupportEnum::Basic)
+        let layers = generate_supports(&raw_layers, s);
+        Some(SupportEnum::Basic((layers, s.clone())))
     } else {
         None
     };
@@ -110,7 +116,9 @@ pub fn slice_solid_to_gcode(
         let mut infill_lines = Vec::new();
 
         for (ci, contour) in layer.contours.iter().enumerate() {
-            let tag = regions.and_then(|r| r.get(li)).and_then(|row| row.get(ci).copied());
+            let tag = regions
+                .and_then(|r| r.get(li))
+                .and_then(|row| row.get(ci).copied());
             let role = tag.and_then(|t| t.role).unwrap_or(settings.default_role);
             let tool = tag.map(|t| t.tool).unwrap_or(0);
 
@@ -206,7 +214,8 @@ pub fn slice_solid_to_gcode(
             match support {
                 SupportEnum::Basic((support_layers, support_settings)) => {
                     if let Some(support_layer) = support_layers.get(li) {
-                        perimeters.extend(support_layer.to_paths(support_settings.pillar_half_width));
+                        perimeters
+                            .extend(support_layer.to_paths(support_settings.pillar_half_width));
                     }
                 }
                 SupportEnum::Tree(tree_layers) => {
@@ -307,16 +316,28 @@ mod tests {
         let (x1, y1, z1) = (center.x + half, center.y + half, center.z + half);
         let mut v = |x: f64, y: f64, z: f64| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(x0, y0, z0), v(x1, y0, z0), v(x1, y1, z0), v(x0, y1, z0),
-            v(x0, y0, z1), v(x1, y0, z1), v(x1, y1, z1), v(x0, y1, z1),
+            v(x0, y0, z0),
+            v(x1, y0, z0),
+            v(x1, y1, z0),
+            v(x0, y1, z0),
+            v(x0, y0, z1),
+            v(x1, y0, z1),
+            v(x1, y1, z1),
+            v(x0, y1, z1),
         ];
         let mut f = |a: u32, b: u32, c: u32| s.faces.push(Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 
@@ -335,16 +356,28 @@ mod tests {
         let (x1, y1) = (cx + half, cy + half);
         let mut v = |x: f64, y: f64, z: f64| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(x0, y0, z0), v(x1, y0, z0), v(x1, y1, z0), v(x0, y1, z0),
-            v(x0, y0, z1), v(x1, y0, z1), v(x1, y1, z1), v(x0, y1, z1),
+            v(x0, y0, z0),
+            v(x1, y0, z0),
+            v(x1, y1, z0),
+            v(x0, y1, z0),
+            v(x0, y0, z1),
+            v(x1, y0, z1),
+            v(x1, y1, z1),
+            v(x0, y1, z1),
         ];
         let mut f = |a: u32, b: u32, c: u32| s.faces.push(Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 
@@ -353,8 +386,11 @@ mod tests {
         let cap = box_solid(0.0, 0.0, 2.0, 4.0, 5.0);
         let base = post.vertices.len() as u32;
         post.vertices.extend(cap.vertices);
-        post.faces
-            .extend(cap.faces.iter().map(|f| Face::new(f.a + base, f.b + base, f.c + base)));
+        post.faces.extend(
+            cap.faces
+                .iter()
+                .map(|f| Face::new(f.a + base, f.b + base, f.c + base)),
+        );
         post
     }
 
@@ -402,7 +438,10 @@ mod tests {
             None,
             None,
         );
-        assert!(res.gcode.text.contains("M106 S255"), "expected full-fan bridge cooling in gcode");
+        assert!(
+            res.gcode.text.contains("M106 S255"),
+            "expected full-fan bridge cooling in gcode"
+        );
     }
 
     #[test]
@@ -428,7 +467,10 @@ mod tests {
                     && path.points.first().is_some_and(|p| p.dist(target) < 1.0))
             })
         });
-        assert!(starts_near_target, "expected a perimeter seam near the requested point");
+        assert!(
+            starts_near_target,
+            "expected a perimeter seam near the requested point"
+        );
     }
 
     #[test]
@@ -437,7 +479,12 @@ mod tests {
         let res = slice_solid(&s);
         let n_layers = res.layers.len();
         let regions: Vec<Vec<RegionTag>> = (0..n_layers)
-            .map(|_| vec![RegionTag { role: None, tool: 1 }])
+            .map(|_| {
+                vec![RegionTag {
+                    role: None,
+                    tool: 1,
+                }]
+            })
             .collect();
         let printer = PrinterProfile {
             extruders: vec![crate::profile::ExtruderProfile {
@@ -546,15 +593,31 @@ mod tests {
             },
             None,
         );
-        let res1 = reslice_after_edit(&tree, &PrinterProfile::default(), &SliceSettings::default(), &MaterialCalibration::default());
+        let res1 = reslice_after_edit(
+            &tree,
+            &PrinterProfile::default(),
+            &SliceSettings::default(),
+            &MaterialCalibration::default(),
+        );
         assert!(res1.is_some());
         // Change the height parameter.
         let mut sketch2 = Sketch::new();
         sketch2.line(Vec2::ZERO, Vec2::new(5.0, 0.0));
         sketch2.line(Vec2::new(5.0, 0.0), Vec2::new(5.0, 5.0));
         sketch2.line(Vec2::new(5.0, 5.0), Vec2::ZERO);
-        tree.update(id, Feature::Extrude { sketch: sketch2, height: 10.0 });
-        let res2 = reslice_after_edit(&tree, &PrinterProfile::default(), &SliceSettings::default(), &MaterialCalibration::default());
+        tree.update(
+            id,
+            Feature::Extrude {
+                sketch: sketch2,
+                height: 10.0,
+            },
+        );
+        let res2 = reslice_after_edit(
+            &tree,
+            &PrinterProfile::default(),
+            &SliceSettings::default(),
+            &MaterialCalibration::default(),
+        );
         assert!(res2.is_some());
         let res2 = res2.unwrap();
         assert!(res2.gcode.estimated_filament_mm > res1.unwrap().gcode.estimated_filament_mm);

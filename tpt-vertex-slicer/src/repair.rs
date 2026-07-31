@@ -59,7 +59,11 @@ pub fn repair_mesh(solid: &Solid, epsilon: f64) -> (Solid, RepairReport) {
     // triangles.
     let mut new_faces = Vec::with_capacity(solid.faces.len());
     for f in &solid.faces {
-        let (a, b, c) = (remap[f.a as usize], remap[f.b as usize], remap[f.c as usize]);
+        let (a, b, c) = (
+            remap[f.a as usize],
+            remap[f.b as usize],
+            remap[f.c as usize],
+        );
         if a == b || b == c || a == c {
             report.degenerate_faces_removed += 1;
             continue;
@@ -101,8 +105,14 @@ mod tests {
         let mut s = Solid::new();
         let mut v = |x: f64, y: f64, z: f64| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(0.0, 0.0, 0.0), v(1.0, 0.0, 0.0), v(1.0, 1.0, 0.0), v(0.0, 1.0, 0.0),
-            v(0.0, 0.0, 1.0), v(1.0, 0.0, 1.0), v(1.0, 1.0, 1.0), v(0.0, 1.0, 1.0),
+            v(0.0, 0.0, 0.0),
+            v(1.0, 0.0, 0.0),
+            v(1.0, 1.0, 0.0),
+            v(0.0, 1.0, 0.0),
+            v(0.0, 0.0, 1.0),
+            v(1.0, 0.0, 1.0),
+            v(1.0, 1.0, 1.0),
+            v(0.0, 1.0, 1.0),
         ];
         // Duplicate a vertex (within welding tolerance of an existing one),
         // added before the `f` closure below so both closures don't need to
@@ -110,12 +120,18 @@ mod tests {
         let dup = v(1e-9, 1e-9, 1e-9); // effectively coincident with p[0]
 
         let mut f = |a: u32, b: u32, c: u32| s.faces.push(Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         // A degenerate zero-area triangle using the duplicate vertex.
         f(dup, p[1], p[1]);
         s

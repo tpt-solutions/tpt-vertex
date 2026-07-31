@@ -32,7 +32,7 @@ impl Default for StreamConfig {
 }
 
 /// Callback invoked after each chunk is sent, with `(chunk_index, total_chunks)`.
-pub type ProgressCallback = Box<dyn Fn(usize, usize) -> ()>;
+pub type ProgressCallback = Box<dyn Fn(usize, usize)>;
 
 /// Streams G-code line-by-line (or layer-by-layer) to a printer.
 pub struct GCodeStreamer<'a> {
@@ -50,7 +50,7 @@ impl<'a> GCodeStreamer<'a> {
     pub fn stream_full(&self, gcode: &str) -> Result<usize, PrinterError> {
         let chunks = split_layers(gcode);
         let total = chunks.len();
-        for (i, chunk) in chunks.iter().enumerate() {
+        for chunk in chunks.iter() {
             self.client.send_gcode(chunk)?;
             if self.config.wait_ack {
                 // Poll status to check the printer is still alive.
@@ -64,7 +64,7 @@ impl<'a> GCodeStreamer<'a> {
     pub fn stream_with_progress(
         &self,
         gcode: &str,
-        mut on_progress: ProgressCallback,
+        on_progress: ProgressCallback,
     ) -> Result<usize, PrinterError> {
         let chunks = split_layers(gcode);
         let total = chunks.len();

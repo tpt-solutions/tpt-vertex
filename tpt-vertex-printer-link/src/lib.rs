@@ -28,21 +28,29 @@
 pub mod client;
 pub mod discovery;
 pub mod esp3d;
+pub mod keychain;
+pub mod moonraker;
 pub mod octoprint;
 pub mod stream;
 pub mod target;
+pub mod telemetry;
 pub mod transport;
 
 #[cfg(test)]
 mod mock;
 
 pub use client::{
-    ConnectionInfo, JobProgress, PrinterClient, PrinterError, PrinterState, StatusSnapshot,
-    Temperature, TEMPERATURE_AMBIENT, make_client,
+    make_client, ConnectionInfo, JobProgress, PrinterClient, PrinterError, PrinterState,
+    StatusSnapshot, Temperature, TEMPERATURE_AMBIENT,
 };
 pub use discovery::{DiscoveredPrinter, DiscoveryResult};
 pub use esp3d::Esp3dClient;
+pub use keychain::Keychain;
+pub use moonraker::MoonrakerClient;
 pub use octoprint::OctoPrintClient;
 pub use stream::{GCodeStreamer, StreamConfig};
 pub use target::{PrinterTarget, ProtocolKind};
+pub use telemetry::{
+    observation_from_snapshot, DeviationReport, TelemetryMapping, TelemetryObservation,
+};
 pub use transport::{HttpTransport, ReqwestTransport};

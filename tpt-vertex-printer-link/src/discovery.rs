@@ -117,7 +117,7 @@ mod tests {
             txt: std::collections::HashMap::new(),
         };
         let target = dp.to_target();
-        assert_eq!(target.protocol, ProtocolKind::OctoPrint);
+        assert_eq!(target.kind, ProtocolKind::OctoPrint);
         assert!(target.base_url.contains("printer.local"));
     }
 

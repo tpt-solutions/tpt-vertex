@@ -23,7 +23,12 @@ pub trait HttpTransport {
     fn post(&self, path: &str, body: &[u8], content_type: &str) -> Result<String, PrinterError>;
 
     /// `POST` `path` with a UTF-8 text body and `Content-Type`.
-    fn post_text(&self, path: &str, body: &str, content_type: &str) -> Result<String, PrinterError> {
+    fn post_text(
+        &self,
+        path: &str,
+        body: &str,
+        content_type: &str,
+    ) -> Result<String, PrinterError> {
         self.post(path, body.as_bytes(), content_type)
     }
 
@@ -73,9 +78,15 @@ impl ReqwestTransport {
         format!("{}{}", self.base, path)
     }
 
-    fn authenticated(&self, mut req: reqwest::blocking::RequestBuilder) -> reqwest::blocking::RequestBuilder {
+    fn authenticated(
+        &self,
+        mut req: reqwest::blocking::RequestBuilder,
+    ) -> reqwest::blocking::RequestBuilder {
         // OctoPrint/Moonraker use X-Api-Key; ESP3D has no auth header.
-        if matches!(self.protocol, ProtocolKind::OctoPrint | ProtocolKind::MoonrakerCompat) {
+        if matches!(
+            self.protocol,
+            ProtocolKind::OctoPrint | ProtocolKind::MoonrakerCompat
+        ) {
             if let Some(k) = &self.api_key {
                 req = req.header("X-Api-Key", k);
             }
@@ -95,7 +106,12 @@ impl HttpTransport for ReqwestTransport {
 
     fn post(&self, path: &str, body: &[u8], content_type: &str) -> Result<String, PrinterError> {
         let resp = self
-            .authenticated(self.client.post(self.url(path)).body(body.to_vec()).header("Content-Type", content_type))
+            .authenticated(
+                self.client
+                    .post(self.url(path))
+                    .body(body.to_vec())
+                    .header("Content-Type", content_type),
+            )
             .send()
             .map_err(map_reqwest)?;
         read_text(resp)
@@ -109,7 +125,10 @@ impl HttpTransport for ReqwestTransport {
         extra_fields: &[(&str, &str)],
     ) -> Result<String, PrinterError> {
         use reqwest::blocking::multipart::{Form, Part};
-        let mut form = Form::new().part("file", Part::bytes(data.to_vec()).file_name(filename.to_string()));
+        let mut form = Form::new().part(
+            "file",
+            Part::bytes(data.to_vec()).file_name(filename.to_string()),
+        );
         for (k, v) in extra_fields {
             form = form.text(k.to_string(), v.to_string());
         }
@@ -140,7 +159,9 @@ fn map_reqwest(e: reqwest::Error) -> PrinterError {
 
 fn read_text(resp: reqwest::blocking::Response) -> Result<String, PrinterError> {
     let status = resp.status();
-    let text = resp.text().map_err(|e| PrinterError::Http(format!("read body: {e}")))?;
+    let text = resp
+        .text()
+        .map_err(|e| PrinterError::Http(format!("read body: {e}")))?;
     if !status.is_success() {
         return match status.as_u16() {
             401 | 403 => Err(PrinterError::Auth(format!("HTTP {status}: {text}"))),

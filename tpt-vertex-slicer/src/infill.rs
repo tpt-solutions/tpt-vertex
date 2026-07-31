@@ -23,7 +23,12 @@ pub struct InfillLine {
 
 impl InfillLine {
     pub fn new(a: P2, b: P2) -> Self {
-        InfillLine { a, b, is_bridge: false, tool: 0 }
+        InfillLine {
+            a,
+            b,
+            is_bridge: false,
+            tool: 0,
+        }
     }
 }
 
@@ -82,8 +87,7 @@ pub fn generate_infill(
     while t <= tmax + 1e-9 && count < max_lines {
         count += 1;
         // The scan line runs along `dir` across the full bbox extent.
-        let (amin, amax) = (minx * dir.0 + miny * dir.1, maxx * dir.0 + maxy * dir.1)
-            .minmax();
+        let (amin, amax) = (minx * dir.0 + miny * dir.1, maxx * dir.0 + maxy * dir.1).minmax();
         let mut a = to_world(amin, t);
         let mut b = to_world(amax, t);
         if zigzag && flip {
@@ -100,12 +104,7 @@ pub fn generate_infill(
 
 /// Clip a segment `[a,b]` running along `dir` to the portion inside `poly`.
 /// Returns the clipped sub-segment, or `None` if fully outside.
-fn clip_line_to_polygon(
-    poly: &Contour,
-    a: P2,
-    b: P2,
-    _dir: (f64, f64),
-) -> Option<InfillLine> {
+fn clip_line_to_polygon(poly: &Contour, a: P2, b: P2, _dir: (f64, f64)) -> Option<InfillLine> {
     let n = poly.points.len();
     if n < 3 {
         return None;
@@ -162,9 +161,7 @@ pub(crate) fn point_in_polygon(poly: &Contour, p: P2) -> bool {
     for i in 0..n {
         let a = poly.points[i];
         let b = poly.points[(i + 1) % n];
-        if ((a.y > p.y) != (b.y > p.y))
-            && (p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x)
-        {
+        if ((a.y > p.y) != (b.y > p.y)) && (p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) {
             inside = !inside;
         }
     }

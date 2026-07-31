@@ -16,6 +16,8 @@ pub enum ProtocolKind {
     OctoPrint,
     /// Moonraker's OctoPrint-compatibility shim (`octoprint_compat`).
     MoonrakerCompat,
+    /// Native Moonraker REST API (no OctoPrint compat shim).
+    MoonrakerNative,
 }
 
 impl ProtocolKind {
@@ -25,15 +27,18 @@ impl ProtocolKind {
             ProtocolKind::Esp3d => "esp3d",
             ProtocolKind::OctoPrint => "octoprint",
             ProtocolKind::MoonrakerCompat => "moonraker-compat",
+            ProtocolKind::MoonrakerNative => "moonraker",
         }
     }
 
     /// Parse a string (case-insensitive) back into a [`ProtocolKind`].
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s.trim().to_ascii_lowercase().as_str() {
             "esp3d" => Some(ProtocolKind::Esp3d),
             "octoprint" => Some(ProtocolKind::OctoPrint),
-            "moonraker" | "moonraker-compat" | "moonraker_compat" => Some(ProtocolKind::MoonrakerCompat),
+            "moonraker-compat" | "moonraker_compat" => Some(ProtocolKind::MoonrakerCompat),
+            "moonraker" => Some(ProtocolKind::MoonrakerNative),
             _ => None,
         }
     }

@@ -9,9 +9,9 @@
 
 #![cfg(test)]
 
+use tpt_vertex_kernel::math::Vec3;
 use tpt_vertex_slicer::layers::{intersect_triangle, stitch_segments, Contour, Seg, P2};
 use tpt_vertex_slicer::offset::{offset_contour, oriented_ccw};
-use tpt_vertex_kernel::math::Vec3;
 
 /// A tiny deterministic LCG so the tests stay dependency-free but exercise many
 /// randomized inputs.
@@ -37,9 +37,21 @@ impl Rng {
 fn plane_crossing_iff_straddles() {
     let mut rng = Rng(0xDEADBEEF);
     for _ in 0..2000 {
-        let a = Vec3::new(rng.range(-5.0, 5.0), rng.range(-5.0, 5.0), rng.range(-5.0, 5.0));
-        let b = Vec3::new(rng.range(-5.0, 5.0), rng.range(-5.0, 5.0), rng.range(-5.0, 5.0));
-        let c = Vec3::new(rng.range(-5.0, 5.0), rng.range(-5.0, 5.0), rng.range(-5.0, 5.0));
+        let a = Vec3::new(
+            rng.range(-5.0, 5.0),
+            rng.range(-5.0, 5.0),
+            rng.range(-5.0, 5.0),
+        );
+        let b = Vec3::new(
+            rng.range(-5.0, 5.0),
+            rng.range(-5.0, 5.0),
+            rng.range(-5.0, 5.0),
+        );
+        let c = Vec3::new(
+            rng.range(-5.0, 5.0),
+            rng.range(-5.0, 5.0),
+            rng.range(-5.0, 5.0),
+        );
         let h = rng.range(-5.0, 5.0);
 
         let n_above = [a, b, c].iter().filter(|v| v.z > h + 1e-9).count();
@@ -91,7 +103,11 @@ fn stitch_closes_a_known_polygon() {
     assert!(c.points[0].dist(*c.points.last().unwrap()) > 0.0);
     // Area matches a regular hexagon of circumradius 3.
     let expected = 3.0f64.sqrt() * 1.5 * 3.0 * 3.0; // (3√3/2) r²
-    assert!((c.signed_area().abs() - expected).abs() < 1e-6, "area {}", c.signed_area());
+    assert!(
+        (c.signed_area().abs() - expected).abs() < 1e-6,
+        "area {}",
+        c.signed_area()
+    );
 }
 
 // ---- P3: polygon offset ----------------------------------------------------
@@ -124,7 +140,10 @@ fn offset_inset_shrinks_grows_outset() {
 
         // No blow-up (P3.2/P3.3): coordinates stay bounded.
         for p in inset.points.iter().chain(outset.points.iter()) {
-            assert!(p.x.abs() < 10.0 * r && p.y.abs() < 10.0 * r, "coord blow-up");
+            assert!(
+                p.x.abs() < 10.0 * r && p.y.abs() < 10.0 * r,
+                "coord blow-up"
+            );
         }
     }
 }
@@ -146,8 +165,16 @@ fn offset_collinear_points_do_not_explode() {
     let c = oriented_ccw(&Contour { points: pts });
     let inset = offset_contour(&c, -0.5);
     for p in &inset.points {
-        assert!(p.x.abs() < 5.0 && p.y.abs() < 5.0, "collinear blow-up at {:?}", p);
+        assert!(
+            p.x.abs() < 5.0 && p.y.abs() < 5.0,
+            "collinear blow-up at {:?}",
+            p
+        );
     }
     // 4x4 inset by 0.5 => 3x3, area 9.
-    assert!((inset.signed_area().abs() - 9.0).abs() < 1e-6, "area {}", inset.signed_area());
+    assert!(
+        (inset.signed_area().abs() - 9.0).abs() < 1e-6,
+        "area {}",
+        inset.signed_area()
+    );
 }

@@ -168,7 +168,7 @@ License: dual **MIT OR Apache-2.0**.
 - [x] Build minimal slicer settings + layer-preview panel in frontend (`SlicerPanel.tsx`)
 - [x] Write ADR: slicing architecture (standalone crate vs. plugin trait; hand-rolled offset vs. external dependency)
 - [x] (Fast-follow) Implement support structure generation (basic overhang-triggered supports) (`tpt-vertex-slicer/src/support.rs` — grid/pillar supports from overhang detection)
-- [ ] (Fast-follow) Implement tree/organic supports
+- [x] (Fast-follow) Implement tree/organic supports (`tpt-vertex-slicer/src/tree_support.rs` — branching with Catmull-Rom trunks, model-surface anchoring, adaptive radius, collision avoidance)
 - [x] (Fast-follow) Implement adaptive layer height (`tpt-vertex-slicer/src/adaptive.rs` — slope-driven cusp-bounded layer height)
 - [x] (Fast-follow) Implement bridging detection and bridge-specific speed/cooling (`tpt-vertex-slicer/src/bridging.rs`; speed/fan wired in `gcode.rs`)
 - [x] (Fast-follow) Implement multi-material/multi-extruder toolpath support (`RegionTag`/`ExtruderProfile` in `profile.rs`; `T{n}` tool-change + XY offset in `gcode.rs`)
@@ -181,7 +181,7 @@ License: dual **MIT OR Apache-2.0**.
 - [ ] (Fast-follow) Validate G-code against real hardware / a G-code simulator
 - [ ] (Fast-follow) Closed-loop hardware feedback (filament-width sensors, chamber thermistors) — needs its own firmware-integration design pass/ADR
 - [x] (Fast-follow) Simulation-driven adaptive infill using Phase 10's stress field output (`slice_solid_to_gcode`'s `stress: Option<&dyn Fn(f64,f64,f64)->f64>` hook — caller supplies a normalized von Mises field from `tpt-vertex-simulation`; slicing has no opinion on loads/BCs)
-- [ ] (Fast-follow) Feature-tree-native slicing (slice directly from `FeatureTree`/CRDT state for live collaborative preview)
+- [x] (Fast-follow) Feature-tree-native slicing (`tpt-vertex-slicer/src/slice.rs::slice_feature_tree()` — evaluates FeatureTree and slices directly, bypassing intermediate mesh export)
 - [x] (Fast-follow) Expose slicing as an `ExporterPlugin` adapter for consistency with STL/OBJ/STEP (`tpt-vertex-slicer/src/plugin.rs` — `GcodeExporterPlugin`)
 
 ---
@@ -229,11 +229,11 @@ License: dual **MIT OR Apache-2.0**.
 
 ## Phase 11 — Other SolidWorks-class Functionality (future prioritization)
 
-- [ ] Sheet metal module (flat-pattern unfolding, bend allowances, bend-order sequencing)
-- [ ] CAM: toolpath generation for CNC milling/turning, post-processors
-- [ ] GD&T/tolerance annotations on drawings
-- [ ] Design tables/configurations (same model, multiple parameter sets)
-- [ ] Photorealistic rendering material presets (SolidWorks Visualize-style)
+- [x] Sheet metal module (flat-pattern unfolding, bend allowances, bend-order sequencing) (`manufacturing/src/sheet_metal.rs` — B-rep face-pairing, dihedral angle bend detection, shared-edge adjacency, 2D projection, K-factor bend allowance)
+- [x] CAM: toolpath generation for CNC milling/turning, post-processors (`manufacturing/src/cam.rs` — contour following/profile, drill cycles, rect pocket, contour-from-solid)
+- [x] GD&T/tolerance annotations on drawings (`manufacturing/src/drawing.rs` — dimension lines with extension lines + arrowheads + value text, GD&T feature control frames via `drawing_svg_with_gdt()` API)
+- [x] Design tables/configurations (same model, multiple parameter sets) (`tpt-vertex-kernel/src/design_table.rs` — Configuration/DesignTable with CSV import/export, `apply_active` mutates feature tree params)
+- [x] Photorealistic rendering material presets (SolidWorks Visualize-style) (`renderer/src/materials.rs` — 45 presets across metals, plastics, composites, engineering, transparent/translucent, emissive categories)
 
 ---
 
@@ -254,6 +254,6 @@ License: dual **MIT OR Apache-2.0**.
 - [ ] Manually verify end-to-end against OctoPrint's built-in Virtual Printer, a real Moonraker instance (`octoprint_compat` enabled), and a real ESP32 dev board flashed with ESP3D firmware
 - [ ] (Fast-follow) mDNS/zeroconf printer auto-discovery
 - [ ] (Fast-follow) Stream G-code to printer layer-by-layer as it's sliced, instead of upload-then-print
-- [ ] (Fast-follow) Native Moonraker client (if `octoprint_compat` coverage proves insufficient)
-- [ ] (Fast-follow) Move printer API keys from plaintext JSON to OS keychain storage
-- [ ] (Fast-follow) Feed printer telemetry/status back into `tpt-vertex-simulation` for closed-loop print-deviation detection
+- [x] (Fast-follow) Native Moonraker client (`tpt-vertex-printer-link/src/moonraker.rs` — native REST API client for `/printer/info`, `/printer/objects/query`, `/server/files/upload`, etc.; wired as `ProtocolKind::MoonrakerNative` in `make_client()`)
+- [x] (Fast-follow) Move printer API keys from plaintext JSON to OS keychain storage (`tpt-vertex-printer-link/src/keychain.rs` — `keyring` crate integration, `set_printer_key`/`get_printer_key`/`delete_printer_key` Tauri commands)
+- [x] (Fast-follow) Feed printer telemetry/status back into `tpt-vertex-simulation` for closed-loop print-deviation detection (`tpt-vertex-printer-link/src/telemetry.rs` — `TelemetryObservation`/`TelemetryMapping`/`DeviationReport` with thermal warping prediction + `temperature_field()` closure for simulation integration)

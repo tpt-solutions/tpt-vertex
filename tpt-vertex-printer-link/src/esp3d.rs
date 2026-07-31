@@ -71,7 +71,11 @@ impl PrinterClient for Esp3dClient {
             // paused flag by some builds. We treat an active SD print as
             // Printing unless the reply explicitly mentions "pause".
             let paused = progress_reply.to_ascii_lowercase().contains("pause");
-            let state = if paused { PrinterState::Paused } else { PrinterState::Printing };
+            let state = if paused {
+                PrinterState::Paused
+            } else {
+                PrinterState::Printing
+            };
             let progress = Some(JobProgress {
                 completion: frac,
                 file: parse_sd_filename(&progress_reply),
@@ -137,7 +141,13 @@ fn parse_firmware_name(reply: &str) -> Option<String> {
     if reply.is_empty() || reply.eq_ignore_ascii_case("ok") {
         None
     } else {
-        Some(reply.split_whitespace().next().unwrap_or("ESP3D").to_string())
+        Some(
+            reply
+                .split_whitespace()
+                .next()
+                .unwrap_or("ESP3D")
+                .to_string(),
+        )
     }
 }
 

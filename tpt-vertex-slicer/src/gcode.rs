@@ -60,7 +60,10 @@ pub fn emit_gcode(
             if pct == 0 {
                 text.push_str("M107 ; fan off\n");
             } else {
-                text.push_str(&format!("M106 S{} ; fan speed\n", (pct as f32 * 2.55) as u32));
+                text.push_str(&format!(
+                    "M106 S{} ; fan speed\n",
+                    (pct as f32 * 2.55) as u32
+                ));
             }
             *fan_pct = Some(pct);
         }
@@ -77,12 +80,21 @@ pub fn emit_gcode(
 
     for plan in plans {
         text.push_str(&format!("; LAYER Z={:.3}\n", plan.z));
-        text.push_str(&format!("G1 Z{:.3} F{:.0}\n", plan.z, printer.travel_speed * 60.0));
+        text.push_str(&format!(
+            "G1 Z{:.3} F{:.0}\n",
+            plan.z,
+            printer.travel_speed * 60.0
+        ));
 
         let mut moves = plan.moves.iter().peekable();
         while let Some(m) = moves.next() {
             match m {
-                Move::Travel { to, z, retract, z_hop } => {
+                Move::Travel {
+                    to,
+                    z,
+                    retract,
+                    z_hop,
+                } => {
                     // A travel move is followed by the extrusion it's
                     // positioning for; switch tool now so the move already
                     // targets the right nozzle's offset.
@@ -227,7 +239,10 @@ mod tests {
         let mat = MaterialCalibration::default();
         let plan = LayerPlan {
             z: 0.2,
-            moves: vec![Move::Extrude { z: 0.2, path: rect_path() }],
+            moves: vec![Move::Extrude {
+                z: 0.2,
+                path: rect_path(),
+            }],
         };
         let g = emit_gcode(&[plan], &printer, &mat);
         assert!(g.text.contains("G90"));
@@ -245,7 +260,10 @@ mod tests {
         bridge.is_bridge = true;
         let plan = LayerPlan {
             z: 0.2,
-            moves: vec![Move::Extrude { z: 0.2, path: bridge }],
+            moves: vec![Move::Extrude {
+                z: 0.2,
+                path: bridge,
+            }],
         };
         let g = emit_gcode(&[plan], &printer, &mat);
         assert!(g.text.contains("M106 S255"));
@@ -263,12 +281,21 @@ mod tests {
         wide.width = Some(printer.extrusion_width() * 3.0);
 
         let g_narrow = emit_gcode(
-            &[LayerPlan { z: 0.2, moves: vec![Move::Extrude { z: 0.2, path: narrow }] }],
+            &[LayerPlan {
+                z: 0.2,
+                moves: vec![Move::Extrude {
+                    z: 0.2,
+                    path: narrow,
+                }],
+            }],
             &printer,
             &mat,
         );
         let g_wide = emit_gcode(
-            &[LayerPlan { z: 0.2, moves: vec![Move::Extrude { z: 0.2, path: wide }] }],
+            &[LayerPlan {
+                z: 0.2,
+                moves: vec![Move::Extrude { z: 0.2, path: wide }],
+            }],
             &printer,
             &mat,
         );
@@ -292,7 +319,10 @@ mod tests {
         tool1.tool = 1;
         let plan = LayerPlan {
             z: 0.2,
-            moves: vec![Move::Extrude { z: 0.2, path: tool1 }],
+            moves: vec![Move::Extrude {
+                z: 0.2,
+                path: tool1,
+            }],
         };
         let g = emit_gcode(&[plan], &printer, &mat);
         assert!(g.text.contains("T1 ; tool change"));

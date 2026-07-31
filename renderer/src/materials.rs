@@ -68,6 +68,9 @@ impl RenderMaterial {
             RenderMaterial::new("Copper", Color::rgb(0.72, 0.45, 0.20), 0.90, 0.25),
             RenderMaterial::new("Gold", Color::rgb(0.83, 0.69, 0.22), 0.95, 0.10),
             RenderMaterial::new("Titanium", Color::rgb(0.62, 0.62, 0.66), 0.85, 0.30),
+            RenderMaterial::new("Chrome", Color::rgb(0.85, 0.85, 0.87), 0.95, 0.05),
+            RenderMaterial::new("Cast Iron", Color::rgb(0.40, 0.40, 0.42), 0.85, 0.55),
+            RenderMaterial::new("Tungsten", Color::rgb(0.55, 0.55, 0.58), 0.90, 0.30),
             // Plastics
             RenderMaterial::new("Matte White", Color::rgb(0.90, 0.90, 0.90), 0.0, 0.80),
             RenderMaterial::new("Matte Black", Color::rgb(0.05, 0.05, 0.05), 0.0, 0.85),
@@ -77,11 +80,47 @@ impl RenderMaterial {
             RenderMaterial::new("PLA White", Color::rgb(0.88, 0.88, 0.86), 0.0, 0.65),
             RenderMaterial::new("PLA Black", Color::rgb(0.08, 0.08, 0.08), 0.0, 0.70),
             RenderMaterial::new("PETG Natural", Color::rgb(0.82, 0.82, 0.80), 0.0, 0.50),
-            // Finishes
+            RenderMaterial::new("ABS White", Color::rgb(0.87, 0.87, 0.85), 0.0, 0.70),
+            RenderMaterial::new("Nylon Natural", Color::rgb(0.80, 0.80, 0.75), 0.0, 0.55),
+            RenderMaterial::new("TPU Black", Color::rgb(0.08, 0.08, 0.08), 0.0, 0.90),
+            // Composites & Finishes
             RenderMaterial::new("Carbon Fiber", Color::rgb(0.15, 0.15, 0.17), 0.30, 0.40),
             RenderMaterial::new("Rubber", Color::rgb(0.10, 0.10, 0.10), 0.0, 0.95),
             RenderMaterial::new("Glass", Color::rgb(0.85, 0.88, 0.90), 0.10, 0.05),
             RenderMaterial::new("Ceramic", Color::rgb(0.85, 0.82, 0.78), 0.0, 0.60),
+            RenderMaterial::new("Wood (Oak)", Color::rgb(0.65, 0.45, 0.25), 0.0, 0.75),
+            RenderMaterial::new("Wood (Walnut)", Color::rgb(0.35, 0.22, 0.12), 0.0, 0.70),
+            RenderMaterial::new("Leather", Color::rgb(0.40, 0.25, 0.15), 0.0, 0.85),
+            RenderMaterial::new("Fabric (Cotton)", Color::rgb(0.85, 0.82, 0.78), 0.0, 0.95),
+            // Engineering
+            RenderMaterial::new("Concrete", Color::rgb(0.60, 0.58, 0.55), 0.0, 0.90),
+            RenderMaterial::new("Marble", Color::rgb(0.88, 0.86, 0.84), 0.05, 0.30),
+            RenderMaterial::new("Granite", Color::rgb(0.45, 0.43, 0.42), 0.10, 0.60),
+            RenderMaterial::new("Bronze", Color::rgb(0.55, 0.42, 0.20), 0.88, 0.35),
+            RenderMaterial::new("Zinc", Color::rgb(0.65, 0.67, 0.70), 0.85, 0.30),
+            RenderMaterial::new("Nickel", Color::rgb(0.70, 0.68, 0.65), 0.90, 0.20),
+            // Transparent / Translucent
+            RenderMaterial::new("Clear Acrylic", Color::rgb(0.92, 0.92, 0.95), 0.0, 0.05),
+            RenderMaterial::new("Amber", Color::rgb(0.80, 0.55, 0.10), 0.0, 0.15),
+            RenderMaterial::new("Ruby", Color::rgb(0.60, 0.05, 0.10), 0.10, 0.10),
+            RenderMaterial::new("Sapphire", Color::rgb(0.10, 0.15, 0.50), 0.10, 0.10),
+            // Emissive
+            RenderMaterial {
+                name: "LED Blue".to_string(),
+                albedo: Color::rgb(0.10, 0.20, 0.80),
+                metallic: 0.0,
+                roughness: 0.3,
+                emissive: 0.8,
+                texture: None,
+            },
+            RenderMaterial {
+                name: "LED Green".to_string(),
+                albedo: Color::rgb(0.10, 0.70, 0.15),
+                metallic: 0.0,
+                roughness: 0.3,
+                emissive: 0.8,
+                texture: None,
+            },
         ]
     }
 

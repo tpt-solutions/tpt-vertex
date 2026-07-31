@@ -18,6 +18,8 @@ serde_json = "1"
 # backend so it builds and links quickly; LAN printer endpoints are almost
 # always plain HTTP. Enable the `tls` feature for HTTPS printers.
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "multipart"] }
+# OS keychain integration for secure API key storage.
+keyring = "4"
 
 [features]
 # Pull in a rustls TLS backend so the client can talk to HTTPS printer fronts.

@@ -3,10 +3,8 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 //!
 //! Provides data structures for ASME Y14.5 / ISO 1101 style GD&T feature
-//!控制 frames applied to model geometry.  These annotations are stored as
+//! control frames applied to model geometry.  These annotations are stored as
 //! metadata alongside the feature tree and rendered in 2D drawing views.
-
-use crate::math::Vec3;
 
 /// The primary GD&T geometric characteristic symbols.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -138,7 +136,11 @@ impl FeatureControlFrame {
     /// Render the FCF as a human-readable string (single line).
     pub fn to_string_compact(&self) -> String {
         let tol_mod = self.tol_modifier.map(|m| m.symbol()).unwrap_or("");
-        let datums: String = self.datums.iter().map(|d| format!(" {}", d.label)).collect();
+        let datums: String = self
+            .datums
+            .iter()
+            .map(|d| format!(" {}", d.label))
+            .collect();
         format!(
             "[{} | {:.3}{tol} |{datums}]",
             self.characteristic.symbol(),
@@ -229,10 +231,12 @@ mod tests {
     #[test]
     fn annotation_compact_string() {
         let ann = GdtAnnotation::new()
-            .add_frame(FeatureControlFrame::new(GeometricCharacteristic::Flatness, 0.02))
+            .add_frame(FeatureControlFrame::new(
+                GeometricCharacteristic::Flatness,
+                0.02,
+            ))
             .add_frame(
-                FeatureControlFrame::new(GeometricCharacteristic::Position, 0.1)
-                    .with_datum("A"),
+                FeatureControlFrame::new(GeometricCharacteristic::Position, 0.1).with_datum("A"),
             );
         let s = ann.to_string_compact();
         assert!(s.lines().count() == 2);

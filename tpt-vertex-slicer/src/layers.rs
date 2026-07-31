@@ -79,6 +79,28 @@ pub struct Layer {
     pub contours: Vec<Contour>,
 }
 
+impl Layer {
+    /// Bounding box `(min, max)` encompassing all contours in this layer.
+    pub fn bbox(&self) -> Option<((f64, f64), (f64, f64))> {
+        let mut minx = f64::INFINITY;
+        let mut miny = f64::INFINITY;
+        let mut maxx = f64::NEG_INFINITY;
+        let mut maxy = f64::NEG_INFINITY;
+        for c in &self.contours {
+            if let Some(((bx0, by0), (bx1, by1))) = c.bbox() {
+                minx = minx.min(bx0);
+                miny = miny.min(by0);
+                maxx = maxx.max(bx1);
+                maxy = maxy.max(by1);
+            }
+        }
+        if !minx.is_finite() {
+            return None;
+        }
+        Some(((minx, miny), (maxx, maxy)))
+    }
+}
+
 /// Slice a solid into layers from `z_min` to `z_max` at the given `layer_height`.
 ///
 /// The first layer sits at `z_min` (or `first_layer_height` above it when the
@@ -199,10 +221,7 @@ pub fn intersect_triangle(tri: [Vec3; 3], z: f64) -> Option<Seg> {
     for &a in above.iter().take(n_above) {
         for &b in below.iter().take(n_below) {
             let t = (z - a.z) / (b.z - a.z);
-            pts.push(P2::new(
-                a.x + t * (b.x - a.x),
-                a.y + t * (b.y - a.y),
-            ));
+            pts.push(P2::new(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y)));
         }
     }
     if pts.len() < 2 {
@@ -295,7 +314,10 @@ mod tests {
             v(x1, y1, z1),
             v(x0, y1, z1),
         ];
-        let mut f = |a: u32, b: u32, c: u32| s.faces.push(tpt_vertex_kernel::geometry::solid::Face::new(a, b, c));
+        let mut f = |a: u32, b: u32, c: u32| {
+            s.faces
+                .push(tpt_vertex_kernel::geometry::solid::Face::new(a, b, c))
+        };
         // bottom
         f(p[0], p[1], p[2]);
         f(p[0], p[2], p[3]);
@@ -332,7 +354,11 @@ mod tests {
         assert_eq!(contours.len(), 1);
         let c = &contours[0];
         // 2x2 square centred at origin.
-        assert!((c.signed_area().abs() - 4.0).abs() < 1e-6, "area {}", c.signed_area());
+        assert!(
+            (c.signed_area().abs() - 4.0).abs() < 1e-6,
+            "area {}",
+            c.signed_area()
+        );
     }
 
     #[test]

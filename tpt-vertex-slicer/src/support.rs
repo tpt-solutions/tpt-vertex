@@ -191,16 +191,28 @@ mod tests {
         let (x1, y1) = (cx + half, cy + half);
         let mut v = |x: f64, y: f64, z: f64| s.add_vertex(Vec3::new(x, y, z));
         let p = [
-            v(x0, y0, z0), v(x1, y0, z0), v(x1, y1, z0), v(x0, y1, z0),
-            v(x0, y0, z1), v(x1, y0, z1), v(x1, y1, z1), v(x0, y1, z1),
+            v(x0, y0, z0),
+            v(x1, y0, z0),
+            v(x1, y1, z0),
+            v(x0, y1, z0),
+            v(x0, y0, z1),
+            v(x1, y0, z1),
+            v(x1, y1, z1),
+            v(x0, y1, z1),
         ];
         let mut f = |a: u32, b: u32, c: u32| s.faces.push(Face::new(a, b, c));
-        f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-        f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-        f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-        f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-        f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-        f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+        f(p[0], p[1], p[2]);
+        f(p[0], p[2], p[3]);
+        f(p[4], p[6], p[5]);
+        f(p[4], p[7], p[6]);
+        f(p[0], p[5], p[1]);
+        f(p[0], p[4], p[5]);
+        f(p[1], p[6], p[2]);
+        f(p[1], p[5], p[6]);
+        f(p[2], p[7], p[3]);
+        f(p[2], p[6], p[7]);
+        f(p[3], p[4], p[0]);
+        f(p[3], p[7], p[4]);
         s
     }
 
@@ -212,9 +224,11 @@ mod tests {
         // Merge into one mesh (slicing does not require boolean union).
         let base = post.vertices.len() as u32;
         post.vertices.extend(cap.vertices);
-        post.faces.extend(cap.faces.iter().map(|f| {
-            Face::new(f.a + base, f.b + base, f.c + base)
-        }));
+        post.faces.extend(
+            cap.faces
+                .iter()
+                .map(|f| Face::new(f.a + base, f.b + base, f.c + base)),
+        );
         crate::layers::slice_solid(&post, 0.0, 4.0, 0.2, 0.2)
     }
 
@@ -234,8 +248,14 @@ mod tests {
         // A sample point clearly under the overhang (outside the post,
         // inside the cap) should get a pillar at a low layer.
         let overhang_pt = P2::new(4.0, 0.0);
-        let has_pillar_near = supports[0].pillars.iter().any(|pl| pl.center.dist(overhang_pt) < 2.0);
-        assert!(has_pillar_near, "expected a pillar near the overhang column at the first layer");
+        let has_pillar_near = supports[0]
+            .pillars
+            .iter()
+            .any(|pl| pl.center.dist(overhang_pt) < 2.0);
+        assert!(
+            has_pillar_near,
+            "expected a pillar near the overhang column at the first layer"
+        );
     }
 
     #[test]

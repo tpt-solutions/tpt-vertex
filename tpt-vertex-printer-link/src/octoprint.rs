@@ -47,9 +47,11 @@ impl OctoPrintClient {
     }
 
     fn post_json(&self, path: &str, body: &serde_json::Value) -> Result<(), PrinterError> {
-        let text = self
-            .transport
-            .post(path, &serde_json::to_vec(body).unwrap_or_default(), "application/json")?;
+        let text = self.transport.post(
+            path,
+            &serde_json::to_vec(body).unwrap_or_default(),
+            "application/json",
+        )?;
         // 204 No Content is normal for command endpoints; ignore empty bodies.
         if text.trim().is_empty() {
             return Ok(());
@@ -94,12 +96,26 @@ impl PrinterClient for OctoPrintClient {
 
         let state = match pv.get("state").and_then(|s| s.get("flags")) {
             Some(flags) => {
-                if flags.get("printing").and_then(|b| b.as_bool()).unwrap_or(false) {
+                if flags
+                    .get("printing")
+                    .and_then(|b| b.as_bool())
+                    .unwrap_or(false)
+                {
                     PrinterState::Printing
-                } else if flags.get("paused").and_then(|b| b.as_bool()).unwrap_or(false) {
+                } else if flags
+                    .get("paused")
+                    .and_then(|b| b.as_bool())
+                    .unwrap_or(false)
+                {
                     PrinterState::Paused
-                } else if flags.get("error").and_then(|b| b.as_bool()).unwrap_or(false)
-                    || flags.get("closedOrError").and_then(|b| b.as_bool()).unwrap_or(false)
+                } else if flags
+                    .get("error")
+                    .and_then(|b| b.as_bool())
+                    .unwrap_or(false)
+                    || flags
+                        .get("closedOrError")
+                        .and_then(|b| b.as_bool())
+                        .unwrap_or(false)
                 {
                     PrinterState::Error
                 } else {
@@ -141,11 +157,17 @@ impl PrinterClient for OctoPrintClient {
     }
 
     fn pause(&self) -> Result<(), PrinterError> {
-        self.post_json("/api/job", &serde_json::json!({ "command": "pause", "action": "pause" }))
+        self.post_json(
+            "/api/job",
+            &serde_json::json!({ "command": "pause", "action": "pause" }),
+        )
     }
 
     fn resume(&self) -> Result<(), PrinterError> {
-        self.post_json("/api/job", &serde_json::json!({ "command": "pause", "action": "resume" }))
+        self.post_json(
+            "/api/job",
+            &serde_json::json!({ "command": "pause", "action": "resume" }),
+        )
     }
 
     fn cancel(&self) -> Result<(), PrinterError> {
@@ -163,13 +185,28 @@ impl PrinterClient for OctoPrintClient {
 fn parse_temps(pv: &serde_json::Value) -> Temperature {
     let mut t = Temperature::default();
     let temp = pv.get("temperature");
-    if let Some(node) = temp.and_then(|x| x.get("tool0")).or_else(|| temp.and_then(|x| x.get("tool"))) {
-        t.tool = node.get("actual").and_then(|v| v.as_f64()).unwrap_or(f64::NAN);
-        t.tool_target = node.get("target").and_then(|v| v.as_f64()).unwrap_or(f64::NAN);
+    if let Some(node) = temp
+        .and_then(|x| x.get("tool0"))
+        .or_else(|| temp.and_then(|x| x.get("tool")))
+    {
+        t.tool = node
+            .get("actual")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(f64::NAN);
+        t.tool_target = node
+            .get("target")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(f64::NAN);
     }
     if let Some(bed) = temp.and_then(|x| x.get("bed")) {
-        t.bed = bed.get("actual").and_then(|v| v.as_f64()).unwrap_or(f64::NAN);
-        t.bed_target = bed.get("target").and_then(|v| v.as_f64()).unwrap_or(f64::NAN);
+        t.bed = bed
+            .get("actual")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(f64::NAN);
+        t.bed_target = bed
+            .get("target")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(f64::NAN);
     }
     t
 }
@@ -202,7 +239,13 @@ mod tests {
     use serde_json::json;
 
     fn target() -> PrinterTarget {
-        PrinterTarget::new("p2", "Octo", ProtocolKind::OctoPrint, "http://octo.local", Some("KEY".into()))
+        PrinterTarget::new(
+            "p2",
+            "Octo",
+            ProtocolKind::OctoPrint,
+            "http://octo.local",
+            Some("KEY".into()),
+        )
     }
 
     fn mock() -> MockTransport {
@@ -217,7 +260,10 @@ mod tests {
         })
         .to_string();
         MockTransport::new()
-            .respond("/api/version", r#"{"server":"OctoPrint","version":"1.9.0","api":"0.1"}"#)
+            .respond(
+                "/api/version",
+                r#"{"server":"OctoPrint","version":"1.9.0","api":"0.1"}"#,
+            )
             .respond("/api/printer", &printer)
             .respond("/api/job", &job)
             .respond("/api/files/local", "")
@@ -268,7 +314,10 @@ mod tests {
 
         c.start_print("part.gcode").unwrap();
         let posts = posts.lock().unwrap();
-        let job_post = posts.iter().find(|(p, _)| p == "/api/job").expect("job posted");
+        let job_post = posts
+            .iter()
+            .find(|(p, _)| p == "/api/job")
+            .expect("job posted");
         let body: serde_json::Value = serde_json::from_slice(&job_post.1).unwrap();
         assert_eq!(body["command"], "select");
         assert_eq!(body["file"], "local/part.gcode");

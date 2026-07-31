@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use tauri_plugin_store::{Store, StoreExt};
 use tpt_vertex_printer_link::{
-    make_client, ConnectionInfo, PrinterTarget, StatusSnapshot,
+    make_client, ConnectionInfo, DiscoveredPrinter, DiscoveryResult, Keychain,
+    PrinterTarget, StatusSnapshot,
 };
 
 /// Store file backing the saved-printer list.
@@ -110,6 +111,66 @@ pub fn send_to_printer(
 pub fn printer_status(target: PrinterTarget) -> Result<StatusSnapshot, String> {
     let client = make_client(&target).map_err(|e| e.to_string())?;
     client.status().map_err(|e| e.to_string())
+}
+
+/// Scan the local network for printers via mDNS.
+#[tauri::command]
+pub fn discover_printers() -> Result<DiscoveryResult, String> {
+    Ok(tpt_vertex_printer_link::discovery::scan())
+}
+
+/// Store a printer's API key in the OS keychain.
+#[tauri::command]
+pub fn set_printer_key(printer_id: String, api_key: String) -> Result<(), String> {
+    let kc = Keychain::new();
+    kc.set_key(&printer_id, &api_key)
+}
+
+/// Retrieve a printer's API key from the OS keychain.
+#[tauri::command]
+pub fn get_printer_key(printer_id: String) -> Result<Option<String>, String> {
+    let kc = Keychain::new();
+    kc.get_key(&printer_id)
+}
+
+/// Delete a printer's API key from the OS keychain.
+#[tauri::command]
+pub fn delete_printer_key(printer_id: String) -> Result<(), String> {
+    let kc = Keychain::new();
+    kc.delete_key(&printer_id)
+}
+
+/// Stream G-code to a printer layer-by-layer.
+///
+/// Splits the G-code on `"; LAYER"` boundaries and sends each layer
+/// individually, polling the printer status between layers.
+#[tauri::command]
+pub fn stream_gcode(target: PrinterTarget, gcode: String) -> Result<usize, String> {
+    use tpt_vertex_printer_link::stream::{GCodeStreamer, StreamConfig};
+    let client = make_client(&target).map_err(|e| e.to_string())?;
+    let streamer = GCodeStreamer::new(client.as_ref(), StreamConfig::default());
+    streamer.stream_full(&gcode).map_err(|e| e.to_string())
+}
+
+/// Cancel the active print on a printer.
+#[tauri::command]
+pub fn cancel_print(target: PrinterTarget) -> Result<(), String> {
+    let client = make_client(&target).map_err(|e| e.to_string())?;
+    client.cancel().map_err(|e| e.to_string())
+}
+
+/// Pause the active print on a printer.
+#[tauri::command]
+pub fn pause_print(target: PrinterTarget) -> Result<(), String> {
+    let client = make_client(&target).map_err(|e| e.to_string())?;
+    client.pause().map_err(|e| e.to_string())
+}
+
+/// Resume a paused print.
+#[tauri::command]
+pub fn resume_print(target: PrinterTarget) -> Result<(), String> {
+    let client = make_client(&target).map_err(|e| e.to_string())?;
+    client.resume().map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

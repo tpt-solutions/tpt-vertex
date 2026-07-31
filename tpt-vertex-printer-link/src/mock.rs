@@ -9,7 +9,9 @@
 pub(crate) struct MockTransport {
     responses: std::collections::HashMap<String, String>,
     pub commands: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    #[allow(clippy::type_complexity)]
     pub uploads: std::sync::Arc<std::sync::Mutex<Vec<(String, Vec<u8>)>>>,
+    #[allow(clippy::type_complexity)]
     pub posts: std::sync::Arc<std::sync::Mutex<Vec<(String, Vec<u8>)>>>,
 }
 
@@ -44,7 +46,10 @@ impl crate::transport::HttpTransport for MockTransport {
     }
 
     fn post(&self, path: &str, body: &[u8], _ct: &str) -> Result<String, crate::PrinterError> {
-        self.posts.lock().unwrap().push((path.to_string(), body.to_vec()));
+        self.posts
+            .lock()
+            .unwrap()
+            .push((path.to_string(), body.to_vec()));
         self.responses
             .get(path)
             .cloned()
@@ -58,7 +63,10 @@ impl crate::transport::HttpTransport for MockTransport {
         data: &[u8],
         _extra: &[(&str, &str)],
     ) -> Result<String, crate::PrinterError> {
-        self.uploads.lock().unwrap().push((filename.to_string(), data.to_vec()));
+        self.uploads
+            .lock()
+            .unwrap()
+            .push((filename.to_string(), data.to_vec()));
         self.responses
             .get(path)
             .cloned()
