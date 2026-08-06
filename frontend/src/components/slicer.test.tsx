@@ -61,13 +61,13 @@ describe("sliceModel", () => {
 });
 
 describe("SlicerPanel", () => {
-  it("slices on demand and shows estimates", () => {
+  it("slices on demand and shows estimates", async () => {
     render(<SlicerPanel onClose={() => {}} />);
     expect(screen.getByText("Adjust settings and press Slice.")).toBeTruthy();
     fireEvent.click(screen.getByText("Slice"));
-    // Estimates section now shows a layer count row.
-    expect(screen.getByText("Layers")).toBeTruthy();
-    expect(screen.getByLabelText(/Layer selector/)).toBeTruthy();
+    // Slicing is async; wait for the estimates to render.
+    expect(await screen.findByText("Layers")).toBeTruthy();
+    expect(await screen.findByLabelText(/Layer selector/)).toBeTruthy();
   });
 
   it("closes when Close is pressed", () => {

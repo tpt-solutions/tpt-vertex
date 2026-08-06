@@ -1,5 +1,4 @@
 import { useModelStore } from "../state/store";
-import type { FeatureType } from "../state/types";
 
 export function Toolbar({
   onToggleTheme,
@@ -20,7 +19,7 @@ export function Toolbar({
   onOpenPrinters: () => void;
   onOpenCapabilities: () => void;
   onOpenExport: () => void;
-  onAddFeature: (type: FeatureType) => void;
+  onAddFeature: (type: string) => void;
 }) {
   const undo = useModelStore((s) => s.undo);
   const redo = useModelStore((s) => s.redo);

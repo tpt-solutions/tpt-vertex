@@ -3,6 +3,8 @@ import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import { useModelStore } from "../state/store";
 import { buildMesh } from "../geometry/buildMesh";
+import { CollabLayer } from "../collab";
+import { getCollabClient } from "../collab";
 
 function SolidMesh() {
   const features = useModelStore((s) => s.features);
@@ -24,8 +26,21 @@ function SolidMesh() {
 
 export function Viewport() {
   const setSelected = useModelStore((s) => s.setSelected);
+  const client = getCollabClient();
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    client.setLocalCursor(
+      (e.clientX - r.left) / r.width,
+      (e.clientY - r.top) / r.height,
+    );
+  };
   return (
-    <div className="viewport" data-testid="viewport">
+    <div
+      className="viewport"
+      data-testid="viewport"
+      onPointerMove={onPointerMove}
+      onPointerLeave={() => client.clearLocalCursor()}
+    >
       <Canvas camera={{ position: [60, 60, 60], fov: 50 }} onClick={() => setSelected("solid")}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[50, 80, 40]} intensity={1.0} />
@@ -33,6 +48,7 @@ export function Viewport() {
         <SolidMesh />
         <gridHelper args={[200, 20, "#2a2a35", "#1a1a22"]} />
       </Canvas>
+      <CollabLayer showStatus />
     </div>
   );
 }

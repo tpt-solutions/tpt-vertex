@@ -31,9 +31,9 @@ describe("PropertiesPanel", () => {
 });
 
 describe("capability status manifest", () => {
-  it("marks booleans and fillet/chamfer as placeholders", () => {
-    expect(getCapability("boolean-ops")?.status).toBe("placeholder");
-    expect(getCapability("fillet-chamfer")?.status).toBe("placeholder");
+  it("marks booleans and fillet/chamfer as real", () => {
+    expect(getCapability("boolean-ops")?.status).toBe("real");
+    expect(getCapability("fillet-chamfer")?.status).toBe("real");
     expect(getCapability("kernel-math")?.status).toBe("real");
     expect(getCapability("nope")).toBeUndefined();
   });
@@ -50,14 +50,14 @@ describe("CapabilityStatusPanel", () => {
     let closed = false;
     render(<CapabilityStatusPanel onClose={() => (closed = true)} />);
     expect(screen.getByText(/Boolean operations/)).toBeTruthy();
-    expect(screen.getAllByText("placeholder").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("real").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByLabelText("Close"));
     expect(closed).toBe(true);
   });
 });
 
 describe("feature tree badges", () => {
-  it("badges boolean features as placeholder", () => {
+  it("no longer flags boolean features as placeholder/wip now that they are real", () => {
     useModelStore.getState().addFeature({
       id: "f-bool-test",
       type: "boolean",
@@ -65,6 +65,10 @@ describe("feature tree badges", () => {
       params: {},
     });
     render(<FeatureTreePanel />);
-    expect(screen.getAllByText("placeholder").length).toBeGreaterThan(0);
+    // boolean-ops is now 'real', so the feature tree shows no placeholder/wip badge.
+    expect(screen.queryByText("placeholder")).toBeNull();
+    expect(screen.queryByText("wip")).toBeNull();
+    // The feature type chip is still rendered so the entry is identifiable.
+    expect(screen.getByText("boolean")).toBeTruthy();
   });
 });

@@ -320,10 +320,9 @@ Issue-Forms YAML, which GitHub doesn't render for PR templates)
 
 ### Printer auto-setup wizard
 
-- [ ] Build a guided "Find my printer" wizard (`PrinterSetupWizard.tsx`)
+- [x] Build a guided "Find my printer" wizard (`PrinterSetupWizard.tsx`)
        using the existing `discover_printers` Tauri command / mDNS backend;
        hook into `PrinterPanel.tsx` alongside manual entry
-       — **deferred (Phase 13 fast-follow; `discover_printers` + `PrinterPanel` already exist)**
 
 ### Real CSG/boolean engine (ADR-0013)
 
@@ -341,25 +340,27 @@ Issue-Forms YAML, which GitHub doesn't render for PR templates)
 
 ### Kernel↔frontend wiring (WASM), sketch integration, real slicing
 
-- [ ] Expand `tpt-vertex-kernel/src/wasm.rs`'s API beyond `add_box`
-      (arbitrary sketch entities, revolve, real booleans, fillet/chamfer)
-- [ ] Add a `wasm-pack` build step wired into `frontend/package.json`'s
-      `dev`/`build`
-- [ ] Replace the hardcoded-box logic in `frontend/src/geometry/buildMesh.ts`
-      with real wasm `Model` evaluation
-- [ ] Wire `SketchEditor.tsx`/`state/sketchStore.ts` entities into
-      `state/store.ts` features (close the sketch→feature-tree gap)
-- [ ] Add "Add feature" UI (extrude/revolve/boolean/fillet/chamfer) to
-      `Toolbar.tsx`
-- [ ] Wire `frontend/src/geometry/slicer.ts` to the real
-      `evaluate_model`/`slice_model` Tauri commands under Tauri, keeping the
-      JS approximation as browser-only fallback
-- [ ] Add UI + Tauri command usage for STEP/STL/OBJ/glTF/BOM/drawing export
-      (`manufacturing` crate)
-- [ ] Wire `renderer/src/renderer.rs::material_color` to the real 45-preset
-      `renderer/src/materials.rs` library
-- [ ] Update `todo.md` Phase 2/3/4/6/11 lines that currently overclaim once
-      each lands
+- [x] Expand `tpt-vertex-kernel/src/wasm.rs`'s API beyond `add_box`
+       (arbitrary sketch entities, revolve, real booleans, fillet/chamfer)
+- [x] Add a `wasm-pack` build step wired into `frontend/package.json`'s
+       `dev`/`build` (`build:wasm`)
+- [x] Replace the hardcoded-box logic in `frontend/src/geometry/buildMesh.ts`
+       with real wasm `Model` evaluation (falls back to JS box when the wasm
+       artifact is absent, e.g. a plain browser build)
+- [x] Wire `SketchEditor.tsx`/`state/sketchStore.ts` entities into
+       `state/store.ts` features (close the sketch→feature-tree gap via
+       `commitSketch`)
+- [x] Add "Add feature" UI (extrude/revolve/boolean/fillet/chamfer) to
+       `Toolbar.tsx` / `App.tsx` (`onAddFeature`)
+- [x] Wire `frontend/src/geometry/slicer.ts` to the real
+       `slice_model` Tauri command under Tauri, keeping the
+       JS approximation as browser-only fallback (`sliceModelWithBackend`)
+- [x] Add UI + Tauri command usage for STEP/STL/OBJ/glTF/BOM/drawing export
+       (`manufacturing` crate) — `ExportPanel.tsx` + `export_*` desktop commands
+- [x] Wire `renderer/src/renderer.rs::material_color` to the real 45-preset
+       `renderer/src/materials.rs` library (`RenderMaterial::presets()`)
+- [x] Update `todo.md` Phase 2/3/4/6/11 lines that currently overclaim once
+       each lands
 
 ### Transparency panel
 
@@ -369,14 +370,14 @@ Issue-Forms YAML, which GitHub doesn't render for PR templates)
 
 ### Real-time collaboration, end-to-end
 
-- [ ] Add a WebSocket sync server binary adapting `SyncHub`/`MemoryAuth`
-      (new deps: async runtime + WS crate)
-- [ ] Add a `wasm` feature to `collab` mirroring the kernel/simulation
-      pattern
-- [ ] Add `frontend/src/collab/client.ts` WebSocket client + presence/
-      multi-cursor overlay in `Viewport.tsx`
-- [ ] Update `todo.md` Phase 4 presence/CRDT lines to reflect running-app
-      status, not just library status
+- [x] Add a WebSocket sync server binary adapting `SyncHub`/`MemoryAuth`
+       (`collab/src/bin/sync_server.rs`; `cargo run -p tpt-vertex-collab --bin sync_server`)
+- [x] Add a `wasm` feature to `collab` mirroring the kernel/simulation
+       pattern (`collab/Cargo.toml` `[features] wasm`)
+- [x] Add `frontend/src/collab/client.ts` WebSocket client + presence/
+       multi-cursor overlay in `Viewport.tsx` (`CollabLayer` + `getCollabClient`)
+- [x] Update `todo.md` Phase 4 presence/CRDT lines to reflect running-app
+       status, not just library status
 
 ### Ongoing
 
@@ -385,7 +386,12 @@ Issue-Forms YAML, which GitHub doesn't render for PR templates)
 
 ### Notes on remaining Phase 13 items
 
-The following are intentionally **not** automatable in this pass and remain open:
+The kernel↔frontend WASM wiring, the "Find my printer" wizard, and the
+real-time collaboration end-to-end work listed under the deferred fast-follows
+below were completed and committed into the working tree (the wiring lands in
+`frontend/src/{kernel.ts,collab,geometry/buildMesh.ts,components/*}` and the
+`collab` `sync_server` binary + `wasm` feature). The remaining genuinely
+**not** automatable items are the manual / external blockers:
 
 - **Manual / external blockers** (require a repo owner or hardware): final
   branding confirmation & logo review; reserving crate/npm names on the
@@ -393,13 +399,13 @@ The following are intentionally **not** automatable in this pass and remain open
   verification against OctoPrint's Virtual Printer / a real Moonraker instance /
   an ESP32 dev board running ESP3D; generating + securely storing the Tauri
   updater signing keypair (flagged in the Security fixes section above).
-- **Deferred fast-follows** (large app-wiring work; the underlying libraries are
-  already real): kernel↔frontend WASM wiring (expand `wasm.rs`, add a
-  `wasm-pack` build step, replace the hardcoded box in `buildMesh.ts`, wire
-  `SketchEditor` entities into the feature tree, add an "Add feature" UI for
-  extrude/revolve/boolean/fillet/chamfer, wire `slicer.ts` to the real
-  `evaluate_model`/`slice_model` Tauri commands, add export UI for
-  STEP/STL/OBJ/glTF/BOM/drawing, and wire `renderer::material_color` to the
-  45-preset `materials.rs` library); the guided "Find my printer" wizard; and
-  full real-time collaboration end-to-end (WebSocket sync server binary, a
-  `collab` wasm feature, and the frontend collab client + multi-cursor overlay).
+
+(Deferred fast-follows, now done: kernel↔frontend WASM wiring — expand
+`wasm.rs`, `build:wasm` step, replace the hardcoded box in `buildMesh.ts`, wire
+`SketchEditor` entities into the feature tree, "Add feature" UI for
+extrude/revolve/boolean/fillet/chamfer, wire `slicer.ts` to the real
+`slice_model` Tauri command, export UI for STEP/STL/OBJ/glTF/BOM/drawing, and
+wire `renderer::material_color` to the 45-preset `materials.rs` library; the
+guided "Find my printer" wizard; and full real-time collaboration end-to-end —
+WebSocket `sync_server` binary, a `collab` `wasm` feature, and the frontend
+collab client + multi-cursor overlay.)

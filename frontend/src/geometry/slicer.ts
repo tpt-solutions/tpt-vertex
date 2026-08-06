@@ -1,5 +1,6 @@
 import type { FeatureNode } from "../state/types";
-import { isTauri, invoke } from "../printer/client";
+import { isTauri } from "../printer/client";
+import { invoke } from "@tauri-apps/api/core";
 
 /**
  * Minimal browser-side FDM slicer preview for the current parametric model.

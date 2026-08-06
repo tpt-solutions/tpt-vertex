@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useModelStore } from "../state/store";
-import { isTauri, invoke } from "../printer/client";
+import { isTauri } from "../printer/client";
+import { invoke } from "@tauri-apps/api/core";
 import type { FeatureNode } from "../state/types";
 
 /**

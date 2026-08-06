@@ -122,10 +122,10 @@ export const CAPABILITIES: Capability[] = [
   {
     id: "collab-live",
     label: "Real-time multi-user sync (running app)",
-    status: "wip",
+    status: "real",
     phase: 4,
     notes:
-      "The app does not yet connect to a sync server: the WebSocket server binary, collab wasm build and browser client are Phase 13 work.",
+      "The browser client connects to the `sync_server` WebSocket binary (adapting SyncHub), relays CRDT ops and renders remote cursors via the `CollabLayer` overlay. The kernel `collab` crate carries a `wasm` feature mirroring the kernel/simulation pattern.",
   },
   {
     id: "version-control",
