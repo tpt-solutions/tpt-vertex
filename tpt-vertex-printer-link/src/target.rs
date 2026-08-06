@@ -8,15 +8,23 @@ use serde::{Deserialize, Serialize};
 ///
 /// This describes *how Vertex talks to* a printer, not the printer's physical
 /// capabilities (which live in `tpt-vertex-slicer`'s [`PrinterProfile`]).
+///
+/// The `serde` renames below match [`ProtocolKind::as_str`] exactly, so JSON
+/// sent over the Tauri IPC boundary (and thus the frontend's TS union) uses
+/// the same lowercase-dash strings as the rest of the crate's serialization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ProtocolKind {
     /// ESP3D Web UI firmware (G-code-over-HTTP + multipart upload).
+    #[serde(rename = "esp3d")]
     Esp3d,
     /// Native OctoPrint REST API.
+    #[serde(rename = "octoprint")]
     OctoPrint,
     /// Moonraker's OctoPrint-compatibility shim (`octoprint_compat`).
+    #[serde(rename = "moonraker-compat")]
     MoonrakerCompat,
     /// Native Moonraker REST API (no OctoPrint compat shim).
+    #[serde(rename = "moonraker")]
     MoonrakerNative,
 }
 
@@ -83,5 +91,27 @@ impl PrinterTarget {
     /// Normalize the base URL by trimming trailing slashes.
     pub fn normalized_base(&self) -> String {
         self.base_url.trim_end_matches('/').to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The JSON wire representation (what the frontend sends/receives over
+    /// the Tauri IPC boundary) must match [`ProtocolKind::as_str`] exactly.
+    #[test]
+    fn protocol_kind_json_matches_as_str() {
+        for kind in [
+            ProtocolKind::Esp3d,
+            ProtocolKind::OctoPrint,
+            ProtocolKind::MoonrakerCompat,
+            ProtocolKind::MoonrakerNative,
+        ] {
+            let json = serde_json::to_string(&kind).unwrap();
+            assert_eq!(json, format!("\"{}\"", kind.as_str()));
+            let round_tripped: ProtocolKind = serde_json::from_str(&json).unwrap();
+            assert_eq!(round_tripped, kind);
+        }
     }
 }

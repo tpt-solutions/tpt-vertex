@@ -42,6 +42,22 @@ describe("sliceModel", () => {
     const r = sliceModel(box, { ...DEFAULT_SLICE_SETTINGS, infillDensity: 0 });
     expect(r.layers.every((l) => l.infill.length === 0)).toBe(true);
   });
+
+  it("invokes onLayer once per layer, in order, with that layer's own G-code", () => {
+    const calls: Array<{ index: number; total: number; gcode: string }> = [];
+    const r = sliceModel(box, DEFAULT_SLICE_SETTINGS, (index, total, gcode) => {
+      calls.push({ index, total, gcode });
+    });
+    expect(calls.length).toBe(r.layerCount);
+    calls.forEach((c, i) => {
+      expect(c.index).toBe(i);
+      expect(c.total).toBe(r.layerCount);
+      expect(c.gcode).toContain(`; LAYER Z=${r.layers[i].z.toFixed(3)}`);
+    });
+    // Streaming layer-by-layer must not change what gets sliced/estimated.
+    const plain = sliceModel(box, DEFAULT_SLICE_SETTINGS);
+    expect(plain.gcode).toBe(r.gcode);
+  });
 });
 
 describe("SlicerPanel", () => {

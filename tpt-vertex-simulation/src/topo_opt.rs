@@ -336,7 +336,21 @@ fn apply_filter(sens: &[f64], weights: &[Vec<(usize, f64)>]) -> Vec<f64> {
         .collect()
 }
 
-/// Optimality criteria (OC) density update.
+/// Minimum density, applied as a hard floor everywhere below. SIMP requires
+/// ρ > 0 for every element: a truly zero-density element contributes zero
+/// stiffness, which can leave nodes touched only by "void" elements with no
+/// stiffness at all and make the global matrix singular. `1e-3` (the value
+/// used by Sigmund & Maass's reference implementation) keeps every element
+/// contributing a small but non-zero stiffness.
+const RHO_MIN: f64 = 1e-3;
+
+/// Optimality criteria (OC) density update, following Sigmund & Maass's
+/// 99-line formulation: `ρ_new = clamp(ρ·sqrt(-dC/dρ / λ), ρ - move, ρ + move)`,
+/// further clamped to `[RHO_MIN, 1]`. The move limit bounds *how far ρ can
+/// change this iteration* around its current value — it is not a floor on ρ
+/// itself, which would (and previously did, before this was fixed) prevent
+/// low-sensitivity elements from ever being driven toward the minimum
+/// density.
 fn oc_update(
     rho: &[f64],
     sensitivities: &[f64],
@@ -346,6 +360,13 @@ fn oc_update(
 ) -> Vec<f64> {
     let n = rho.len();
 
+    let candidate_rho = |i: usize, lambda: f64| -> f64 {
+        let raw = rho[i] * (-sensitivities[i] / lambda).sqrt();
+        let lower = (rho[i] - config.move_limit).max(RHO_MIN);
+        let upper = (rho[i] + config.move_limit).min(1.0);
+        raw.clamp(lower, upper)
+    };
+
     // Lagrange multiplier via bisection on the volume constraint.
     let mut lambda_min = 0.0;
     let mut lambda_max = 1e10;
@@ -354,11 +375,7 @@ fn oc_update(
     for _ in 0..50 {
         lambda = (lambda_min + lambda_max) / 2.0;
         let vol_sum: f64 = (0..n)
-            .map(|i| {
-                let mut r = rho[i] * (-sensitivities[i] / lambda).sqrt();
-                r = r.max(config.move_limit).clamp(0.0, 1.0);
-                r * elem_vols[i]
-            })
+            .map(|i| candidate_rho(i, lambda) * elem_vols[i])
             .sum();
 
         if vol_sum > target_vol {
@@ -368,14 +385,7 @@ fn oc_update(
         }
     }
 
-    // Final OC update.
-    (0..n)
-        .map(|i| {
-            let mut r = rho[i] * (-sensitivities[i] / lambda).sqrt();
-            r = r.max(config.move_limit).clamp(0.0, 1.0);
-            r
-        })
-        .collect()
+    (0..n).map(|i| candidate_rho(i, lambda)).collect()
 }
 
 #[cfg(test)]
@@ -407,8 +417,17 @@ mod tests {
     #[test]
     fn topo_opt_reduces_volume() {
         let vol = beam_mesh();
+        // Fully clamp the entire x=0 face (nodes 0, 3, 4, 7) rather than a
+        // single node: fixing just one node leaves rigid-body rotation
+        // unconstrained in 3D, which is close enough to singular that the
+        // dense solver can blow up once densities are actually allowed to
+        // approach the SIMP minimum (see `RHO_MIN`) instead of being floored
+        // at `move_limit` by the bug `oc_update` used to have.
         let bc = BoundaryCondition::new()
             .fix_node(0)
+            .fix_node(3)
+            .fix_node(4)
+            .fix_node(7)
             .with_load(crate::bc::PointLoad {
                 node: 6,
                 fx: 0.0,
@@ -424,13 +443,28 @@ mod tests {
             move_limit: 0.3,
         };
         let result = topo_optimize(&vol, 200_000.0, 0.3, &bc, &config);
-        // Densities should not all be at the initial value.
+        assert!(result.converged, "should converge within max_iter");
+        assert!(!result.history.is_empty());
+
+        // The OC bisection enforces the volume constraint each iteration, so
+        // the average density should track the target volume fraction...
         let avg_rho: f64 = result.densities.iter().sum::<f64>() / result.densities.len() as f64;
         assert!(
-            avg_rho < config.volume_fraction + 0.1,
-            "average density {avg_rho}"
+            (avg_rho - config.volume_fraction).abs() < 0.05,
+            "average density {avg_rho} should track the target volume fraction {}",
+            config.volume_fraction
         );
-        assert!(!result.history.is_empty());
+
+        // ...but individual densities should not all sit at that initial
+        // uniform value: SIMP's penalization should push them toward a
+        // near-binary (void/solid) layout rather than a uniform gray field.
+        let max_rho = result.densities.iter().cloned().fold(f64::MIN, f64::max);
+        let min_rho = result.densities.iter().cloned().fold(f64::MAX, f64::min);
+        assert!(
+            max_rho - min_rho > 0.3,
+            "densities did not diversify away from uniform: {:?}",
+            result.densities
+        );
     }
 
     #[test]

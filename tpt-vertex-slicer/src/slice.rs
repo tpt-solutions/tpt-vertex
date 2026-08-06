@@ -554,6 +554,14 @@ mod tests {
     }
 
     #[test]
+    fn emitted_gcode_passes_static_validation() {
+        let s = cube(Vec3::new(0.0, 0.0, 5.0), 5.0);
+        let res = slice_solid(&s);
+        let issues = crate::gcode_validate::validate_gcode(&res.gcode.text, None);
+        assert!(issues.is_empty(), "unexpected G-code issues: {:?}", issues);
+    }
+
+    #[test]
     fn slice_feature_tree_produces_gcode() {
         use tpt_vertex_kernel::geometry::sketch::Sketch;
         use tpt_vertex_kernel::math::Vec2;

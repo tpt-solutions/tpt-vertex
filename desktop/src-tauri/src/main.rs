@@ -15,6 +15,7 @@
 
 use serde::{Deserialize, Serialize};
 
+mod cloud;
 mod keychain;
 mod printer;
 
@@ -144,6 +145,7 @@ pub struct SliceOutput {
     pub gcode: String,
     pub layer_count: usize,
     pub estimated_filament_mm: f64,
+    pub estimated_filament_g: f64,
     pub estimated_time_s: f64,
     pub layers: Vec<LayerPreview>,
 }
@@ -200,6 +202,7 @@ fn slice_spec(model: &ModelSpec, slice: &SliceSpec) -> SliceOutput {
         gcode: res.gcode.text,
         layer_count: res.gcode.layer_count,
         estimated_filament_mm: res.gcode.estimated_filament_mm,
+        estimated_filament_g: res.gcode.estimated_filament_g,
         estimated_time_s: res.gcode.estimated_time_s,
         layers,
     }
@@ -260,18 +263,30 @@ fn run_static_analysis_spec(spec: &ModelSpec, req: &AnalysisRequest) -> Analysis
     let [x0, y0, x1, y1] = spec.rect;
     let h = spec.height.max(1e-6);
     let mut solid = Solid::new();
-    let v = |x: f64, y: f64, z: f64| solid.add_vertex(Vec3::new(x, y, z));
+    let mut v = |x: f64, y: f64, z: f64| solid.add_vertex(Vec3::new(x, y, z));
     let p = [
-        v(x0, y0, 0.0), v(x1, y0, 0.0), v(x1, y1, 0.0), v(x0, y1, 0.0),
-        v(x0, y0, h), v(x1, y0, h), v(x1, y1, h), v(x0, y1, h),
+        v(x0, y0, 0.0),
+        v(x1, y0, 0.0),
+        v(x1, y1, 0.0),
+        v(x0, y1, 0.0),
+        v(x0, y0, h),
+        v(x1, y0, h),
+        v(x1, y1, h),
+        v(x0, y1, h),
     ];
-    let f = |a: u32, b: u32, c: u32| solid.faces.push(Face::new(a, b, c));
-    f(p[0], p[1], p[2]); f(p[0], p[2], p[3]);
-    f(p[4], p[6], p[5]); f(p[4], p[7], p[6]);
-    f(p[0], p[5], p[1]); f(p[0], p[4], p[5]);
-    f(p[1], p[6], p[2]); f(p[1], p[5], p[6]);
-    f(p[2], p[7], p[3]); f(p[2], p[6], p[7]);
-    f(p[3], p[4], p[0]); f(p[3], p[7], p[4]);
+    let mut f = |a: u32, b: u32, c: u32| solid.faces.push(Face::new(a, b, c));
+    f(p[0], p[1], p[2]);
+    f(p[0], p[2], p[3]);
+    f(p[4], p[6], p[5]);
+    f(p[4], p[7], p[6]);
+    f(p[0], p[5], p[1]);
+    f(p[0], p[4], p[5]);
+    f(p[1], p[6], p[2]);
+    f(p[1], p[5], p[6]);
+    f(p[2], p[7], p[3]);
+    f(p[2], p[6], p[7]);
+    f(p[3], p[4], p[0]);
+    f(p[3], p[7], p[4]);
 
     let material = Material::from_name(&req.material);
     let mut bc = BoundaryCondition::new();
@@ -279,7 +294,12 @@ fn run_static_analysis_spec(spec: &ModelSpec, req: &AnalysisRequest) -> Analysis
         bc = bc.fix_node(n);
     }
     for &(n, fx, fy, fz) in &req.loads {
-        bc = bc.with_load(PointLoad { node: n, fx, fy, fz });
+        bc = bc.with_load(PointLoad {
+            node: n,
+            fx,
+            fy,
+            fz,
+        });
     }
     let settings = AnalysisSettings::new(material, bc, req.max_tet_edge);
     let res = run_static_analysis(&solid, &settings).expect("static analysis");
@@ -349,7 +369,13 @@ fn run_motion_frame_spec(spec: &ModelSpec, req: &MotionRequest) -> MotionRespons
         s.line(Vec2::new(1.0, 0.0), Vec2::new(1.0, 1.0));
         s.line(Vec2::new(1.0, 1.0), Vec2::ZERO);
         let mut t = FeatureTree::new();
-        t.add(Feature::Extrude { sketch: s, height: 1.0 }, None);
+        t.add(
+            Feature::Extrude {
+                sketch: s,
+                height: 1.0,
+            },
+            None,
+        );
         t
     };
 
@@ -379,7 +405,11 @@ fn run_motion_frame_spec(spec: &ModelSpec, req: &MotionRequest) -> MotionRespons
             let _ = id;
             PartPose {
                 name: p.name.clone(),
-                position: [p.transform.translation.x, p.transform.translation.y, p.transform.translation.z],
+                position: [
+                    p.transform.translation.x,
+                    p.transform.translation.y,
+                    p.transform.translation.z,
+                ],
                 rotation: q_to_arr(p.transform.rotation),
             }
         })
@@ -417,9 +447,11 @@ fn main() {
             printer::get_printer_key,
             printer::delete_printer_key,
             printer::stream_gcode,
+            printer::stream_gcode_layer,
             printer::cancel_print,
             printer::pause_print,
-            printer::resume_print
+            printer::resume_print,
+            cloud::open_cloud_project
         ])
         .run(tauri::generate_context!())
         .expect("error while running TPT Vertex desktop");
@@ -497,7 +529,11 @@ mod tests {
         // The mover's rotation quaternion should be a +90° rotation about Z.
         let mover = res.parts.iter().find(|p| p.name == "mover").unwrap();
         let expected = (std::f64::consts::FRAC_PI_2 / 2.0).cos(); // w = cos(θ/2)
-        assert!((mover.rotation[0] - expected).abs() < 1e-9, "w {}", mover.rotation[0]);
+        assert!(
+            (mover.rotation[0] - expected).abs() < 1e-9,
+            "w {}",
+            mover.rotation[0]
+        );
         assert!((mover.rotation[3] - (std::f64::consts::FRAC_PI_2 / 2.0).sin()).abs() < 1e-9);
     }
 }

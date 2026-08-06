@@ -84,11 +84,23 @@ function rectLoop(hw: number, hd: number): Point[] {
   ];
 }
 
+/** Invoked once per layer, immediately after that layer's G-code is emitted. */
+export type OnLayerSliced = (index: number, total: number, layerGcode: string) => void;
+
 /**
  * Slice the current model into a layer preview + G-code. Coordinates are
  * centered on the origin (matching the viewport mesh) and in millimetres.
+ *
+ * When `onLayer` is given, it fires synchronously after each layer's G-code
+ * is appended, so a caller can start streaming that layer to a printer while
+ * the remaining layers are still being computed, instead of waiting for the
+ * entire model to finish slicing.
  */
-export function sliceModel(features: FeatureNode[], settings: SliceSettings): SliceResult {
+export function sliceModel(
+  features: FeatureNode[],
+  settings: SliceSettings,
+  onLayer?: OnLayerSliced,
+): SliceResult {
   const { width, depth, height } = modelBox(features);
   const layers: LayerPreview[] = [];
   const gcodeLines: string[] = [];
@@ -153,6 +165,7 @@ export function sliceModel(features: FeatureNode[], settings: SliceSettings): Sl
     layers.push({ z: layerZ, perimeters, infill });
 
     // Emit G-code for this layer and accumulate estimates.
+    const layerStartIdx = gcodeLines.length;
     gcodeLines.push(`; LAYER Z=${layerZ.toFixed(3)}`, `G1 Z${layerZ.toFixed(3)} F9000`);
     const beadArea = extrusionWidth * settings.layerHeight;
     const emitPath = (pts: Point[], closed: boolean) => {
@@ -173,6 +186,11 @@ export function sliceModel(features: FeatureNode[], settings: SliceSettings): Sl
     };
     for (const loop of perimeters) emitPath(loop, true);
     for (const seg of infill) emitPath([[seg[0], seg[1]], [seg[2], seg[3]]], false);
+
+    if (onLayer) {
+      const layerGcode = gcodeLines.slice(layerStartIdx).join("\n") + "\n";
+      onLayer(zs.indexOf(layerZ), zs.length, layerGcode);
+    }
   }
 
   gcodeLines.push("M104 S0", "M140 S0", "M84");

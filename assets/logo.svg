@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="96" viewBox="0 0 320 96" role="img" aria-label="TPT Vertex">
+  <title>TPT Vertex</title>
+  <defs>
+    <linearGradient id="vg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2dd4bf"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Mark: a rounded tile with a stylized vertex (converging strokes + node) -->
+  <rect x="8" y="16" width="64" height="64" rx="16" fill="url(#vg)"/>
+  <g fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <!-- left edge of the V -->
+    <path d="M24 32 L40 68"/>
+    <!-- right edge of the V -->
+    <path d="M56 32 L40 68"/>
+  </g>
+  <!-- apex node -->
+  <circle cx="40" cy="68" r="5" fill="#ffffff"/>
+
+  <!-- Wordmark -->
+  <g font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-weight="700">
+    <text x="88" y="46" font-size="28" fill="#0f172a">TPT</text>
+    <text x="88" y="74" font-size="28" fill="#2563eb">Vertex</text>
+  </g>
+</svg>

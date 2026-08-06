@@ -14,6 +14,7 @@
 //! - [`infill`] — rectilinear/zigzag infill generation.
 //! - [`path`] — toolpath ordering (perimeters, infill, travel/retraction).
 //! - [`gcode`] — G-code emission for a generic configurable FDM profile.
+//! - [`gcode_validate`] — static (structure/syntax) G-code validation.
 //! - [`support`] — basic overhang-triggered grid/pillar support generation.
 //! - [`adaptive`] — adaptive layer height driven by local surface slope.
 //! - [`bridging`] — bridge detection for bridge-specific speed/cooling.
@@ -27,6 +28,7 @@
 pub mod adaptive;
 pub mod bridging;
 pub mod gcode;
+pub mod gcode_validate;
 pub mod infill;
 pub mod layers;
 pub mod offset;
@@ -43,6 +45,7 @@ pub mod variable_width;
 
 pub use adaptive::{adaptive_layer_zs, AdaptiveLayerSettings};
 pub use bridging::BridgeSettings;
+pub use gcode::{emit_gcode, emit_gcode_calibrated, CalibrationFactors, GCode};
 pub use profile::{
     BodyRole, ExtruderProfile, MaterialCalibration, PrinterProfile, RegionTag, SliceSettings,
 };

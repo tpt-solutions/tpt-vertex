@@ -9,6 +9,7 @@ import {
 import {
   listPrinters,
   sendToPrinter,
+  streamGcodeLayer,
   type PrinterTarget,
 } from "../printer/client";
 
@@ -26,6 +27,11 @@ export function SlicerPanel({ onClose }: { onClose: () => void }) {
   const [selectedPrinter, setSelectedPrinter] = useState("");
   const [sendStatus, setSendStatus] = useState<string | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [streaming, setStreaming] = useState(false);
+  const [streamProgress, setStreamProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   const update = <K extends keyof SliceSettings>(key: K, value: SliceSettings[K]) =>
     setSettings((s) => ({ ...s, [key]: value }));
@@ -57,6 +63,39 @@ export function SlicerPanel({ onClose }: { onClose: () => void }) {
       setSendStatus(`State: ${s.state}${pct}`);
     } catch (e) {
       setSendError(String(e));
+    }
+  };
+
+  /**
+   * Slice and push each layer to the printer as soon as it's computed,
+   * instead of slicing fully, uploading the whole file, and only then
+   * starting the print.
+   */
+  const onStream = async () => {
+    if (!selectedPrinter) return;
+    const target = printers.find((p) => p.id === selectedPrinter);
+    if (!target) return;
+
+    setStreamError(null);
+    setStreamProgress(null);
+    setStreaming(true);
+
+    let chain: Promise<void> = Promise.resolve();
+    const r = sliceModel(features, settings, (index, total, layerGcode) => {
+      chain = chain.then(async () => {
+        await streamGcodeLayer(target, layerGcode);
+        setStreamProgress({ done: index + 1, total });
+      });
+    });
+    setResult(r);
+    setLayerIndex(0);
+
+    try {
+      await chain;
+    } catch (e) {
+      setStreamError(String(e));
+    } finally {
+      setStreaming(false);
     }
   };
 
@@ -272,13 +311,34 @@ export function SlicerPanel({ onClose }: { onClose: () => void }) {
             )}
             <button
               className="primary"
-              disabled={!result || printers.length === 0}
+              disabled={!result || printers.length === 0 || streaming}
               onClick={onSend}
             >
               Send to Printer
             </button>
             {sendStatus && <p className="mono">{sendStatus}</p>}
             {sendError && <p className="error">{sendError}</p>}
+
+            <button
+              disabled={printers.length === 0 || streaming}
+              onClick={onStream}
+              title="Push each layer to the printer as it's sliced, instead of uploading the whole file first"
+            >
+              {streaming ? "Streaming…" : "Stream to Printer (layer-by-layer)"}
+            </button>
+            {streamProgress && (
+              <>
+                <progress
+                  value={streamProgress.done}
+                  max={streamProgress.total}
+                  aria-label="Streaming progress"
+                />
+                <p className="mono">
+                  Layer {streamProgress.done} / {streamProgress.total}
+                </p>
+              </>
+            )}
+            {streamError && <p className="error">{streamError}</p>}
           </section>
         </div>
       </div>

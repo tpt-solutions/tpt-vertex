@@ -26,8 +26,10 @@
 //! a tiny local mock HTTP server — no external mocks required.
 
 pub mod client;
+pub mod cloud;
 pub mod discovery;
 pub mod esp3d;
+pub mod feedback;
 pub mod keychain;
 pub mod moonraker;
 pub mod octoprint;
@@ -43,8 +45,12 @@ pub use client::{
     make_client, ConnectionInfo, JobProgress, PrinterClient, PrinterError, PrinterState,
     StatusSnapshot, Temperature, TEMPERATURE_AMBIENT,
 };
+pub use cloud::{fetch_cloud_project, CloudProject, CloudProjectRef};
 pub use discovery::{DiscoveredPrinter, DiscoveryResult};
 pub use esp3d::Esp3dClient;
+pub use feedback::{
+    ClosedLoopController, Correction, FeedbackTarget, HardwareFeedback, MockFeedback, SensorReading,
+};
 pub use keychain::Keychain;
 pub use moonraker::MoonrakerClient;
 pub use octoprint::OctoPrintClient;

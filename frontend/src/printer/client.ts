@@ -17,7 +17,7 @@ export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
-export type ProtocolKind = "esp3d" | "octoprint" | "moonraker-compat";
+export type ProtocolKind = "esp3d" | "octoprint" | "moonraker-compat" | "moonraker";
 
 export interface PrinterTarget {
   id: string;
@@ -62,6 +62,20 @@ export interface StatusSnapshot {
   firmware: string | null;
 }
 
+export interface DiscoveredPrinter {
+  name: string;
+  hostname: string;
+  ip: string;
+  port: number;
+  protocol: ProtocolKind;
+  txt: Record<string, string>;
+}
+
+export interface DiscoveryResult {
+  printers: DiscoveredPrinter[];
+  errors: string[];
+}
+
 const NOT_TAURI = "Printer control is only available in the desktop app.";
 
 export async function listPrinters(): Promise<PrinterTarget[]> {
@@ -96,4 +110,31 @@ export async function sendToPrinter(
 ): Promise<StatusSnapshot> {
   if (!isTauri()) throw new Error(NOT_TAURI);
   return invoke<StatusSnapshot>("send_to_printer", { target, filename, gcode });
+}
+
+/** Scan the LAN for printers advertising themselves via mDNS/zeroconf. */
+export async function discoverPrinters(): Promise<DiscoveryResult> {
+  if (!isTauri()) return { printers: [], errors: [NOT_TAURI] };
+  return invoke<DiscoveryResult>("discover_printers");
+}
+
+/** Build a savable [`PrinterTarget`] from a discovery hit (mirrors the Rust `DiscoveredPrinter::to_target`). */
+export function discoveredPrinterToTarget(p: DiscoveredPrinter): PrinterTarget {
+  const scheme = p.port === 443 ? "https" : "http";
+  return {
+    id: `discovered-${p.name.toLowerCase().replace(/ /g, "-")}`,
+    name: p.name,
+    kind: p.protocol,
+    base_url: `${scheme}://${p.hostname}:${p.port}`,
+    api_key: null,
+  };
+}
+
+/**
+ * Push one already-sliced layer's G-code to the printer, streaming it as
+ * it's produced rather than waiting for the whole file to upload.
+ */
+export async function streamGcodeLayer(target: PrinterTarget, layerGcode: string): Promise<void> {
+  if (!isTauri()) throw new Error(NOT_TAURI);
+  return invoke<void>("stream_gcode_layer", { target, layerGcode });
 }

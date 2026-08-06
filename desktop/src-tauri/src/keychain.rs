@@ -22,9 +22,7 @@ pub fn store_key(account: &str, key: &str) -> Result<(), String> {
     //   entry.set_password(key).map_err(|e| e.to_string())?;
     //
     // For now, use the fallback in-memory store.
-    let mut store = FALLBACK_STORE
-        .lock()
-        .map_err(|e| format!("lock: {e}"))?;
+    let mut store = FALLBACK_STORE.lock().map_err(|e| format!("lock: {e}"))?;
     store.insert(account.to_string(), key.to_string());
     Ok(())
 }
@@ -39,9 +37,7 @@ pub fn get_key(account: &str) -> Result<Option<String>, String> {
     //       Err(keyring::Error::NoEntry) => Ok(None),
     //       Err(e) => Err(e.to_string()),
     //   }
-    let store = FALLBACK_STORE
-        .lock()
-        .map_err(|e| format!("lock: {e}"))?;
+    let store = FALLBACK_STORE.lock().map_err(|e| format!("lock: {e}"))?;
     Ok(store.get(account).cloned())
 }
 
@@ -52,9 +48,7 @@ pub fn delete_key(account: &str) -> Result<bool, String> {
     //       .map_err(|e| e.to_string())?;
     //   entry.delete_credential().map_err(|e| e.to_string())?;
     //   Ok(true)
-    let mut store = FALLBACK_STORE
-        .lock()
-        .map_err(|e| format!("lock: {e}"))?;
+    let mut store = FALLBACK_STORE.lock().map_err(|e| format!("lock: {e}"))?;
     Ok(store.remove(account).is_some())
 }
 

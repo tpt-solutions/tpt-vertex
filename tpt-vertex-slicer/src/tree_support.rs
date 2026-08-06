@@ -221,7 +221,7 @@ fn build_trunks(
         let mut new_active: Vec<(P2, usize)> = Vec::new();
 
         for sub in cluster {
-            let centroid = centroid_of(sub);
+            let centroid = medoid_of(sub);
 
             // Find nearest active trunk.
             let mut best: Option<(f64, usize)> = None;
@@ -518,6 +518,26 @@ fn centroid_of(points: &[P2]) -> P2 {
     P2::new(sx / n, sy / n)
 }
 
+/// Compute the "medoid" of a set of 2D points: the actual sample point
+/// closest to the arithmetic centroid.
+///
+/// An overhang region that wraps all the way around the model (e.g. the rim
+/// of a wide mushroom cap overhanging a narrower post) is an annulus, not a
+/// convex blob. Its arithmetic centroid falls in the ring's hole — a point
+/// that's inside the solid model rather than in the free space a support
+/// trunk needs to occupy — so a trunk anchored there gets skipped at every
+/// layer as "already inside the part" and no support is ever printed.
+/// Snapping to the nearest real sample point guarantees the anchor is always
+/// a point that was actually flagged as unsupported.
+fn medoid_of(points: &[P2]) -> P2 {
+    let c = centroid_of(points);
+    points
+        .iter()
+        .copied()
+        .min_by(|a, b| a.dist(c).partial_cmp(&b.dist(c)).unwrap())
+        .unwrap_or(c)
+}
+
 /// Compute the maximum pairwise distance (diameter) of a point cloud.
 fn point_cloud_diameter(points: &[P2]) -> f64 {
     let mut max_d = 0.0;
@@ -612,6 +632,23 @@ mod tests {
             supports.iter().any(|l| !l.paths.is_empty()),
             "expected at least one layer with tree support paths"
         );
+    }
+
+    #[test]
+    fn medoid_of_ring_avoids_the_hole() {
+        // A ring of points around the origin: the arithmetic centroid is
+        // (0, 0) — inside the hole, not one of the sampled points — but the
+        // medoid must be an actual member of the set.
+        let ring = vec![
+            P2::new(4.0, 0.0),
+            P2::new(-4.0, 0.0),
+            P2::new(0.0, 4.0),
+            P2::new(0.0, -4.0),
+        ];
+        let m = medoid_of(&ring);
+        assert!(ring
+            .iter()
+            .any(|p| (p.x - m.x).abs() < 1e-9 && (p.y - m.y).abs() < 1e-9));
     }
 
     #[test]

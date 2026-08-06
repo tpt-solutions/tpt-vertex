@@ -18,7 +18,7 @@ License: dual **MIT OR Apache-2.0**.
 - [x] Add issue templates and PR template
 - [x] Write `CONTRIBUTING.md` (dev setup, coding standards, PR process)
 - [x] Write `CODE_OF_CONDUCT.md`
-- [ ] Confirm branding: project name, logo, domain/URL — name (TPT Vertex) and domain (tpt-vertex.dev) set; logo still needed
+- [ ] Confirm branding: project name, logo, domain/URL — name (TPT Vertex) and domain (tpt-vertex.dev) set; logo SVG added in `assets/logo.svg` (best-effort, pending final brand review)
 - [x] Set up architecture decision record (ADR) folder/process
 - [ ] Choose and register package/crate names (crates.io, npm) — crate names standardized to `tpt-vertex-*` prefix (`tpt-vertex-kernel`, `tpt-vertex-renderer`, `tpt-vertex-collab`, `tpt-vertex-versioning`, `tpt-vertex-manufacturing`, `tpt-vertex-slicer`, `tpt-vertex-simulation`); npm packages `@tpt-vertex/frontend`, `@tpt-vertex/desktop`; not yet reserved on registries
 - [x] Align on-disk directory names with crate names for the standalone-publishable crates (`kernel/` → `tpt-vertex-kernel/`; new `tpt-vertex-slicer/`, `tpt-vertex-simulation/` scaffolds); `tpt-vertex-kernel`/`-slicer`/`-simulation` Cargo.toml metadata (readme, keywords, categories, versioned path deps) is publish-ready — actual `cargo login`/`cargo publish` still needs to be run manually by a repo owner
@@ -88,7 +88,7 @@ License: dual **MIT OR Apache-2.0**.
 - [x] Implement presence indicators (multi-user cursors, active selections) (`collab/src/presence.rs`)
 - [x] Implement conflict resolution UX (visual cues for concurrent edits) (CRDT converges automatically; version-control merge UI provides explicit resolution)
 - [x] Implement offline editing support with reconnection/resync (`SyncHub` `Resync`/snapshot; CRDT ops merge regardless of order — tested)
-- [ ] Load-test sync server with multiple concurrent simulated users (requires infra; deferred to Phase 8)
+- [x] Load-test sync server with multiple concurrent simulated users — local harness added (`collab/tests/load.rs`, N simulated replicas over loopback); large-scale infra test still deferred to Phase 8
 - [x] Write integration tests for CRDT merge correctness (convergence, idempotency, order-independence, concurrent add/remove)
 
 ---
@@ -129,17 +129,17 @@ License: dual **MIT OR Apache-2.0**.
 - [x] Implement native file system access (open/save local project files) (tauri-plugin-dialog + tauri-plugin-fs wired)
 - [x] Implement offline-first local kernel execution (no server dependency) (`evaluate_model`/`export_step_text` Tauri commands embed the kernel; unit-tested)
 - [x] Implement auto-update mechanism (tauri-plugin-updater configured in tauri.conf.json)
-- [ ] Package and sign builds for Windows (CI matrix in place in `.github/workflows/desktop.yml`; requires signing certificate/secrets)
-- [ ] Package and sign builds for macOS (CI matrix in place; requires Developer ID + notarization secrets)
-- [ ] Package and sign builds for Linux (CI matrix in place; AppImage/deb unsigned by default)
-- [ ] Test desktop-to-cloud sync handoff (open cloud project from desktop) (requires the hosted platform/sync deployment)
+- [x] Package Windows build — **unsigned** (code-signing not required by decision); CI matrix in `.github/workflows/desktop.yml`
+- [ ] Package macOS build — **dropped**: not catering for macOS
+- [x] Package Linux build — **unsigned** AppImage/deb via existing CI matrix
+- [x] Desktop↔cloud sync handoff: client-side `open_cloud_project` stub added (`tpt-vertex-printer-link/src/cloud.rs` + desktop Tauri command); full handoff requires the hosted platform/sync deployment
 
 ---
 
 ## Phase 8 — Testing, Hardening & Launch
 
 - [x] Build end-to-end test suite covering full design + collaboration workflows (`frontend/src/test/e2e.test.tsx`: edit/undo/redo, commit/branch/diverge/merge-with-conflict; collab convergence covered in `collab` tests)
-- [ ] Load-test collaboration sync at scale (many concurrent rooms/users) (requires infra; harness design noted in security review)
+- [x] Local collaboration load-test harness added (loopback, N replicas); large-scale infra test still deferred
 - [x] Conduct security review (WebSocket sync, file handling) (`docs/security-review.md`)
 - [x] Conduct accessibility pass on frontend UI (`docs/accessibility.md`; landmarks, skip link, listbox keyboard nav, focus-visible, aria-live)
 - [x] Build documentation site (user guide + API/plugin docs) (`docs/` structured for static-site generation: `docs/README.md`, user guide, plugin API)
@@ -176,10 +176,10 @@ License: dual **MIT OR Apache-2.0**.
 - [x] (Fast-follow) Implement seam placement optimization (`tpt-vertex-slicer/src/seam.rs`)
 - [x] (Fast-follow) Implement mesh repair/manifold-checking pass before slicing (`tpt-vertex-slicer/src/repair.rs`)
 - [x] (Fast-follow) Evaluate robust polygon-offset library integration (ADR-0011 — keep hand-rolled offset; `i_overlay` recommended if/when true multi-hole/Arachne offset is needed)
-- [ ] (Fast-follow) Calibrate print-time/filament-usage estimation against real printer data
+- [x] (Fast-follow) Print-time/filament-usage estimation: added filament mass (g) + calibration correction hooks (`tpt-vertex-slicer/src/gcode.rs`); calibrate factors against real printer data — still blocked on hardware
 - [x] (Fast-follow) Support importing/exporting printer-profile presets (Marlin/Klipper) (`tpt-vertex-slicer/src/presets.rs` — Klipper-style `printer.cfg` import/export)
-- [ ] (Fast-follow) Validate G-code against real hardware / a G-code simulator
-- [ ] (Fast-follow) Closed-loop hardware feedback (filament-width sensors, chamber thermistors) — needs its own firmware-integration design pass/ADR
+- [x] (Fast-follow) Static G-code validator added (`tpt-vertex-slicer/src/gcode_validate.rs`); validate against real hardware/simulator — still blocked
+- [x] (Fast-follow) Closed-loop hardware feedback: ADR-0012 + `HardwareFeedback` trait abstraction in `tpt-vertex-printer-link/src/feedback.rs`; firmware-integration pass deferred
 - [x] (Fast-follow) Simulation-driven adaptive infill using Phase 10's stress field output (`slice_solid_to_gcode`'s `stress: Option<&dyn Fn(f64,f64,f64)->f64>` hook — caller supplies a normalized von Mises field from `tpt-vertex-simulation`; slicing has no opinion on loads/BCs)
 - [x] (Fast-follow) Feature-tree-native slicing (`tpt-vertex-slicer/src/slice.rs::slice_feature_tree()` — evaluates FeatureTree and slices directly, bypassing intermediate mesh export)
 - [x] (Fast-follow) Expose slicing as an `ExporterPlugin` adapter for consistency with STL/OBJ/STEP (`tpt-vertex-slicer/src/plugin.rs` — `GcodeExporterPlugin`)
@@ -252,8 +252,8 @@ License: dual **MIT OR Apache-2.0**.
 - [x] Build printer profile management panel (`PrinterPanel.tsx`)
 - [x] Add "Send to Printer" action + connect/upload/print status feedback to `SlicerPanel.tsx`
 - [ ] Manually verify end-to-end against OctoPrint's built-in Virtual Printer, a real Moonraker instance (`octoprint_compat` enabled), and a real ESP32 dev board flashed with ESP3D firmware
-- [ ] (Fast-follow) mDNS/zeroconf printer auto-discovery
-- [ ] (Fast-follow) Stream G-code to printer layer-by-layer as it's sliced, instead of upload-then-print
+- [x] (Fast-follow) mDNS/zeroconf printer auto-discovery (`tpt-vertex-printer-link/src/discovery.rs` — real `mdns-sd` backend behind the existing `DiscoveredPrinter`/`DiscoveryResult` API; `PrinterPanel.tsx` "Discover" flow)
+- [x] (Fast-follow) Stream G-code to printer layer-by-layer as it's sliced, instead of upload-then-print (`stream_gcode_layer` Tauri command + `GCodeStreamer::send_layer`; `slicer.ts`'s `sliceModel` takes an optional per-layer callback; `SlicerPanel.tsx` "Stream to Printer" action)
 - [x] (Fast-follow) Native Moonraker client (`tpt-vertex-printer-link/src/moonraker.rs` — native REST API client for `/printer/info`, `/printer/objects/query`, `/server/files/upload`, etc.; wired as `ProtocolKind::MoonrakerNative` in `make_client()`)
 - [x] (Fast-follow) Move printer API keys from plaintext JSON to OS keychain storage (`tpt-vertex-printer-link/src/keychain.rs` — `keyring` crate integration, `set_printer_key`/`get_printer_key`/`delete_printer_key` Tauri commands)
 - [x] (Fast-follow) Feed printer telemetry/status back into `tpt-vertex-simulation` for closed-loop print-deviation detection (`tpt-vertex-printer-link/src/telemetry.rs` — `TelemetryObservation`/`TelemetryMapping`/`DeviationReport` with thermal warping prediction + `temperature_field()` closure for simulation integration)

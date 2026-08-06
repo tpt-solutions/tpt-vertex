@@ -34,3 +34,4 @@ once accepted — superseded decisions are marked with a new ADR, never rewritte
 | 0009   | Simulation scope: linear static FEA + motion, isolated solver | Accepted |
 | 0010   | Printer connectivity: unified ESP3D/OctoPrint client | Accepted |
 | 0011   | Polygon-offset library evaluation (Phase 10 fast-follow) | Accepted |
+| 0012   | Closed-loop hardware feedback (design-only)            | Accepted |

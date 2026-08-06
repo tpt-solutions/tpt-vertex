@@ -13,8 +13,7 @@ use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use tauri_plugin_store::{Store, StoreExt};
 use tpt_vertex_printer_link::{
-    make_client, ConnectionInfo, DiscoveredPrinter, DiscoveryResult, Keychain,
-    PrinterTarget, StatusSnapshot,
+    make_client, ConnectionInfo, DiscoveryResult, Keychain, PrinterTarget, StatusSnapshot,
 };
 
 /// Store file backing the saved-printer list.
@@ -29,18 +28,18 @@ pub struct SavedPrinter {
     pub connected: bool,
 }
 
-fn store(app: &AppHandle) -> Result<Arc<Store>, String> {
+fn store(app: &AppHandle) -> Result<Arc<Store<tauri::Wry>>, String> {
     app.store(STORE_FILE).map_err(|e| e.to_string())
 }
 
-fn read_all(store: &Store) -> Vec<PrinterTarget> {
+fn read_all(store: &Store<tauri::Wry>) -> Vec<PrinterTarget> {
     store
         .get(PRINTERS_KEY)
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default()
 }
 
-fn write_all(store: &Store, printers: &[PrinterTarget]) -> Result<(), String> {
+fn write_all(store: &Store<tauri::Wry>, printers: &[PrinterTarget]) -> Result<(), String> {
     let value = serde_json::to_value(printers).map_err(|e| e.to_string())?;
     store.set(PRINTERS_KEY, value);
     store.save().map_err(|e| e.to_string())
@@ -101,7 +100,9 @@ pub fn send_to_printer(
     } else {
         filename
     };
-    client.upload_gcode(&name, gcode.as_bytes()).map_err(|e| e.to_string())?;
+    client
+        .upload_gcode(&name, gcode.as_bytes())
+        .map_err(|e| e.to_string())?;
     client.start_print(&name).map_err(|e| e.to_string())?;
     client.status().map_err(|e| e.to_string())
 }
@@ -152,6 +153,21 @@ pub fn stream_gcode(target: PrinterTarget, gcode: String) -> Result<usize, Strin
     streamer.stream_full(&gcode).map_err(|e| e.to_string())
 }
 
+/// Push a single already-sliced layer's G-code to the printer.
+///
+/// Meant to be called once per layer as the frontend slicer produces it, so
+/// the printer starts receiving (and, on firmware that executes streamed
+/// G-code directly rather than requiring a stored file, printing) before the
+/// rest of the model has finished slicing — instead of waiting for the whole
+/// file to be uploaded and then starting the print.
+#[tauri::command]
+pub fn stream_gcode_layer(target: PrinterTarget, layer_gcode: String) -> Result<(), String> {
+    use tpt_vertex_printer_link::stream::{GCodeStreamer, StreamConfig};
+    let client = make_client(&target).map_err(|e| e.to_string())?;
+    let streamer = GCodeStreamer::new(client.as_ref(), StreamConfig::default());
+    streamer.send_layer(&layer_gcode).map_err(|e| e.to_string())
+}
+
 /// Cancel the active print on a printer.
 #[tauri::command]
 pub fn cancel_print(target: PrinterTarget) -> Result<(), String> {
@@ -179,7 +195,13 @@ mod tests {
     use tpt_vertex_printer_link::ProtocolKind;
 
     fn sample() -> PrinterTarget {
-        PrinterTarget::new("id1", "Test", ProtocolKind::OctoPrint, "http://localhost", Some("k".into()))
+        PrinterTarget::new(
+            "id1",
+            "Test",
+            ProtocolKind::OctoPrint,
+            "http://localhost",
+            Some("k".into()),
+        )
     }
 
     #[test]

@@ -1,5 +1,7 @@
 # TPT Vertex
 
+![TPT Vertex logo](assets/logo.svg)
+
 > The "Figma for Hardware" — a modern, cross-platform, parametric 3D CAD platform built for real-time collaboration.
 
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)

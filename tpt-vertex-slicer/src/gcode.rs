@@ -9,24 +9,78 @@
 //! thin walls, support pillars), and multi-tool changes (`T{n}`) with
 //! per-extruder XY offset and temperature.
 
+use tpt_vertex_kernel::material::Material;
+
 use crate::layers::P2;
 use crate::path::{LayerPlan, Move};
 use crate::profile::{MaterialCalibration, PrinterProfile};
+
+/// Correction factors that tune the analytical print-time/filament estimates
+/// against measured data from a real printer. They are **uncalibrated
+/// placeholders** (both default to `1.0`): collecting the per-printer/per-material
+/// data to set them is the blocked "calibrate against real printer data" task.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CalibrationFactors {
+    /// Multiplier applied to the estimated print time (e.g. >1 if the printer
+    /// is slower than the ideal kinematic model predicts).
+    pub time_factor: f64,
+    /// Multiplier applied to the estimated filament mass/length (e.g. to absorb
+    /// flow-rate measurement error).
+    pub filament_factor: f64,
+}
+
+impl Default for CalibrationFactors {
+    fn default() -> Self {
+        CalibrationFactors {
+            time_factor: 1.0,
+            filament_factor: 1.0,
+        }
+    }
+}
+
+impl CalibrationFactors {
+    /// Clamp factors to sane, non-negative values so a bad calibration can't
+    /// produce a negative or zero estimate.
+    pub fn sane(&self) -> CalibrationFactors {
+        CalibrationFactors {
+            time_factor: self.time_factor.max(0.0),
+            filament_factor: self.filament_factor.max(0.0),
+        }
+    }
+}
 
 /// Result of G-code emission: the textual program plus simple metadata.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct GCode {
     pub text: String,
     pub layer_count: usize,
+    /// Total extruded filament length in millimetres (ideal kinematic model).
     pub estimated_filament_mm: f64,
+    /// Estimated print time in seconds (ideal kinematic model).
     pub estimated_time_s: f64,
+    /// Estimated filament mass in grams, derived from the extruded volume and
+    /// the material's density (g/mm³). Uncalibrated by default.
+    pub estimated_filament_g: f64,
 }
 
-/// Emit G-code for the given layer plans.
+/// Emit G-code for the given layer plans using the default (uncalibrated)
+/// [`CalibrationFactors`].
 pub fn emit_gcode(
     plans: &[LayerPlan],
     printer: &PrinterProfile,
     material: &MaterialCalibration,
+) -> GCode {
+    emit_gcode_calibrated(plans, printer, material, &CalibrationFactors::default())
+}
+
+/// Emit G-code, applying [`CalibrationFactors`] to the print-time and filament
+/// estimates. The emitted program text is unaffected; only the metadata is
+/// adjusted. See [`CalibrationFactors`] for the calibration caveats.
+pub fn emit_gcode_calibrated(
+    plans: &[LayerPlan],
+    printer: &PrinterProfile,
+    material: &MaterialCalibration,
+    calibration: &CalibrationFactors,
 ) -> GCode {
     let mut text = String::new();
     let default_width = printer.extrusion_width();
@@ -207,11 +261,20 @@ pub fn emit_gcode(
     text.push_str("G1 Z300 F300 ; present\n");
     text.push_str("M84 ; motors off\n");
 
+    let calib = calibration.sane();
+    let fil_mm = e_total.max(0.0) * calib.filament_factor;
+    // Mass = (extruded filament length) × (filament cross-section) × density.
+    // Density is looked up by material name from the kernel table; unknown
+    // names fall back to the generic-plastic density (see `Material::from_name`).
+    let density_g_per_mm3 = Material::from_name(&material.name).density;
+    let fil_g = fil_mm * fil_area * density_g_per_mm3;
+
     GCode {
         text,
         layer_count: plans.len(),
-        estimated_filament_mm: e_total.max(0.0),
-        estimated_time_s: time_s,
+        estimated_filament_mm: fil_mm,
+        estimated_time_s: time_s * calib.time_factor,
+        estimated_filament_g: fil_g,
     }
 }
 
@@ -220,6 +283,7 @@ mod tests {
     use super::*;
     use crate::path::{ExtrusionPath, Move};
     use crate::profile::ExtruderProfile;
+    use tpt_vertex_kernel::material::Material;
 
     fn rect_path() -> ExtrusionPath {
         ExtrusionPath::new(
@@ -328,5 +392,47 @@ mod tests {
         assert!(g.text.contains("T1 ; tool change"));
         // First point (0,0) offset by +25 in X.
         assert!(g.text.contains("X25.000"));
+    }
+
+    #[test]
+    fn estimates_filament_mass_from_density() {
+        let printer = PrinterProfile::default();
+        let mat = MaterialCalibration {
+            name: "PLA".into(),
+            ..MaterialCalibration::default()
+        };
+        let plan = LayerPlan {
+            z: 0.2,
+            moves: vec![Move::Extrude {
+                z: 0.2,
+                path: rect_path(),
+            }],
+        };
+        let g = emit_gcode(&[plan], &printer, &mat);
+        let density = Material::from_name("PLA").density;
+        let expected_g = g.estimated_filament_mm * printer.filament_area() * density;
+        assert!((g.estimated_filament_g - expected_g).abs() < 1e-9);
+        assert!(g.estimated_filament_g > 0.0);
+    }
+
+    #[test]
+    fn calibration_factors_scale_estimates() {
+        let printer = PrinterProfile::default();
+        let mat = MaterialCalibration::default();
+        let plan = LayerPlan {
+            z: 0.2,
+            moves: vec![Move::Extrude {
+                z: 0.2,
+                path: rect_path(),
+            }],
+        };
+        let base = emit_gcode(&[plan.clone()], &printer, &mat);
+        let cal = CalibrationFactors {
+            time_factor: 2.0,
+            filament_factor: 1.5,
+        };
+        let g = emit_gcode_calibrated(&[plan], &printer, &mat, &cal);
+        assert!((g.estimated_time_s - base.estimated_time_s * 2.0).abs() < 1e-9);
+        assert!((g.estimated_filament_g - base.estimated_filament_g * 1.5).abs() < 1e-9);
     }
 }

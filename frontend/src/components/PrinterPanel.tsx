@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import {
   deletePrinter,
+  discoveredPrinterToTarget,
+  discoverPrinters,
   isTauri,
   listPrinters,
   savePrinter,
   testPrinter,
   type ConnectionInfo,
+  type DiscoveredPrinter,
   type PrinterTarget,
   type ProtocolKind,
 } from "../printer/client";
@@ -20,6 +23,8 @@ export function PrinterPanel({ onClose }: { onClose: () => void }) {
   const [editing, setEditing] = useState<PrinterTarget | null>(null);
   const [info, setInfo] = useState<Record<string, ConnectionInfo>>({});
   const [error, setError] = useState<string | null>(null);
+  const [discovered, setDiscovered] = useState<DiscoveredPrinter[]>([]);
+  const [discovering, setDiscovering] = useState(false);
 
   const refresh = () => {
     listPrinters()
@@ -67,6 +72,26 @@ export function PrinterPanel({ onClose }: { onClose: () => void }) {
     } catch (e) {
       setError(String(e));
     }
+  };
+
+  const onDiscover = async () => {
+    setDiscovering(true);
+    setError(null);
+    try {
+      const result = await discoverPrinters();
+      setDiscovered(result.printers);
+      if (result.printers.length === 0 && result.errors.length > 0) {
+        setError(`No printers found (${result.errors.join("; ")})`);
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const onAddDiscovered = (p: DiscoveredPrinter) => {
+    setEditing(discoveredPrinterToTarget(p));
   };
 
   return (
@@ -117,6 +142,38 @@ export function PrinterPanel({ onClose }: { onClose: () => void }) {
             <button className="primary" onClick={() => setEditing(blank())}>
               Add printer
             </button>
+          </section>
+
+          <section className="panel" aria-label="Discovered printers">
+            <h2 className="panel-title">Discover</h2>
+            {!isTauri() && (
+              <p className="muted">Discovery is available in the desktop app.</p>
+            )}
+            <button onClick={onDiscover} disabled={discovering || !isTauri()}>
+              {discovering ? "Scanning…" : "Scan LAN"}
+            </button>
+            {discovered.length === 0 ? (
+              <p className="muted">
+                {discovering ? "Listening for mDNS responses…" : "No printers found yet."}
+              </p>
+            ) : (
+              <ul className="printer-list">
+                {discovered.map((p, i) => (
+                  <li key={`${p.hostname}:${p.port}:${i}`} className="printer-row">
+                    <div>
+                      <strong>{p.name}</strong> <span className="muted">({p.protocol})</span>
+                      <br />
+                      <span className="muted">
+                        {p.hostname} ({p.ip}:{p.port})
+                      </span>
+                    </div>
+                    <div className="row-actions">
+                      <button onClick={() => onAddDiscovered(p)}>Add</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           {editing && (

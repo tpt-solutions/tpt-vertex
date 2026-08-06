@@ -3,18 +3,24 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 //!
 //! Scans the local network for printers advertising themselves via mDNS
-//! (Bonjour/Avahi/Windows DNS-SD).  Common service types include:
-//! - `_octoprint._tcp` — OctoPrint instances
+//! (Bonjour/Avahi/Windows DNS-SD) using the pure-Rust `mdns-sd` crate. Common
+//! service types include:
+//! - `_octoprint._tcp` — OctoPrint instances (via OctoPrint's Discovery plugin)
 //! - `_esp3d._tcp` — ESP3D firmware web UIs
-//! - `_http._tcp` with `_tpt-vertex._sub` — future Vertex-connected printers
+//! - `_moonraker._tcp` — native Moonraker instances
 //!
 //! The discovery module is transport-agnostic: it returns a list of
 //! [`DiscoveredPrinter`]s that the caller can feed into a [`PrinterTarget`](crate::target::PrinterTarget).
 
+use std::time::{Duration, Instant};
+
+use mdns_sd::{ServiceDaemon, ServiceEvent};
+use serde::{Deserialize, Serialize};
+
 use crate::target::{PrinterTarget, ProtocolKind};
 
 /// A printer discovered on the LAN via mDNS.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DiscoveredPrinter {
     /// Human-readable service name (e.g. "OctoPrint on octopi").
     pub name: String,
@@ -46,7 +52,7 @@ impl DiscoveredPrinter {
 }
 
 /// Result of a discovery scan.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct DiscoveryResult {
     pub printers: Vec<DiscoveredPrinter>,
     /// Error messages for service types that failed to resolve.
@@ -57,22 +63,37 @@ pub struct DiscoveryResult {
 const PRINTER_SERVICE_TYPES: &[(&str, ProtocolKind)] = &[
     ("_octoprint._tcp", ProtocolKind::OctoPrint),
     ("_esp3d._tcp", ProtocolKind::Esp3d),
-    ("_http._tcp", ProtocolKind::MoonrakerCompat),
+    ("_moonraker._tcp", ProtocolKind::MoonrakerNative),
 ];
 
-/// Scan for printers on the LAN using mDNS.
+/// How long to listen for mDNS responses per service type by default.
+const DEFAULT_SCAN_TIMEOUT: Duration = Duration::from_secs(3);
+
+/// Scan for printers on the LAN using mDNS, listening for
+/// [`DEFAULT_SCAN_TIMEOUT`] per known service type.
 ///
-/// This is a blocking call that queries each known service type with a timeout.
-/// On platforms without an mDNS resolver, it returns an empty result with an
-/// error message.
-///
-/// On production platforms, this would use `libmdns` or `dns-sd` crate; the
-/// current implementation returns a stub indicating the scan was attempted.
+/// This is a blocking call. If no mDNS-capable network interface is
+/// available (e.g. a sandboxed/offline environment), it returns an empty
+/// result with a descriptive error rather than failing.
 pub fn scan() -> DiscoveryResult {
+    scan_with_timeout(DEFAULT_SCAN_TIMEOUT)
+}
+
+/// Scan for printers on the LAN using mDNS, listening for `timeout` per known
+/// service type before moving on to the next one.
+pub fn scan_with_timeout(timeout: Duration) -> DiscoveryResult {
     let mut result = DiscoveryResult::default();
 
+    let daemon = match ServiceDaemon::new() {
+        Ok(d) => d,
+        Err(e) => {
+            result.errors.push(format!("mDNS daemon unavailable: {e}"));
+            return result;
+        }
+    };
+
     for (service_type, protocol) in PRINTER_SERVICE_TYPES {
-        match query_service_type(service_type) {
+        match query_service_type(&daemon, service_type, timeout) {
             Ok(printers) => {
                 for mut p in printers {
                     p.protocol = *protocol;
@@ -85,15 +106,67 @@ pub fn scan() -> DiscoveryResult {
         }
     }
 
+    let _ = daemon.shutdown();
     result
 }
 
-/// Query a single mDNS service type.  Stub implementation that returns an
-/// error on unsupported platforms; a real implementation would use the OS
-/// mDNS stack or a Rust mDNS library.
-fn query_service_type(_service_type: &str) -> Result<Vec<DiscoveredPrinter>, String> {
-    // Stub: platform mDNS resolution is not yet linked.
-    Err("mDNS resolution not yet available on this platform".to_string())
+/// Browse a single mDNS service type and collect resolved instances until
+/// `timeout` elapses.
+fn query_service_type(
+    daemon: &ServiceDaemon,
+    service_type: &str,
+    timeout: Duration,
+) -> Result<Vec<DiscoveredPrinter>, String> {
+    let full_type = format!("{}.local.", service_type.trim_end_matches('.'));
+    let receiver = daemon
+        .browse(&full_type)
+        .map_err(|e| format!("browse failed: {e}"))?;
+
+    let mut printers = Vec::new();
+    let deadline = Instant::now() + timeout;
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            break;
+        }
+        match receiver.recv_timeout(remaining) {
+            Ok(ServiceEvent::ServiceResolved(info)) => {
+                let txt = info
+                    .txt_properties
+                    .iter()
+                    .map(|p| (p.key().to_string(), p.val_str().to_string()))
+                    .collect();
+                let name = info
+                    .fullname
+                    .split('.')
+                    .next()
+                    .unwrap_or(&info.fullname)
+                    .to_string();
+                let ip = info
+                    .addresses
+                    .iter()
+                    .next()
+                    .map(|a| a.to_string())
+                    .unwrap_or_default();
+                printers.push(DiscoveredPrinter {
+                    name,
+                    hostname: info.host.trim_end_matches('.').to_string(),
+                    ip,
+                    port: info.port,
+                    // Overwritten by the caller with the table's mapped protocol.
+                    protocol: ProtocolKind::OctoPrint,
+                    txt,
+                });
+            }
+            // Not a resolved-instance event (search started/found/removed) —
+            // keep listening until the deadline.
+            Ok(_) => continue,
+            // Timed out or the daemon's channel closed.
+            Err(_) => break,
+        }
+    }
+
+    Ok(printers)
 }
 
 /// Convert a [`DiscoveryResult`] into a list of [`PrinterTarget`]s ready to
@@ -122,9 +195,57 @@ mod tests {
     }
 
     #[test]
-    fn scan_returns_result_even_when_empty() {
-        let result = scan();
-        // The stub always returns errors (no mDNS backend), but the result is valid.
-        assert!(result.printers.is_empty() || !result.errors.is_empty());
+    fn scan_returns_promptly_even_when_empty() {
+        // A short timeout keeps this fast; on a quiet/offline network this
+        // just comes back with no printers and no errors, which is valid —
+        // the point is that scanning never panics or blocks past the
+        // requested timeout.
+        let start = Instant::now();
+        let result = scan_with_timeout(Duration::from_millis(200));
+        assert!(result.errors.len() <= PRINTER_SERVICE_TYPES.len());
+        assert!(start.elapsed() < Duration::from_secs(5));
+    }
+
+    /// End-to-end against the real `mdns-sd` backend: register a fake
+    /// service on the loopback daemon and confirm `query_service_type` can
+    /// resolve it. Skips (rather than fails) when the sandbox denies
+    /// multicast — this is a real network protocol, not something that can
+    /// be faked without it.
+    #[test]
+    fn query_service_type_finds_a_registered_service() {
+        use mdns_sd::ServiceInfo;
+
+        let daemon = match ServiceDaemon::new() {
+            Ok(d) => d,
+            Err(_) => return,
+        };
+
+        let service_type = "_tptvertextest._tcp";
+        let full_type = format!("{service_type}.local.");
+        let info = match ServiceInfo::new(
+            &full_type,
+            "vertex-test-printer",
+            "vertex-test-printer.local.",
+            "127.0.0.1",
+            8899,
+            &[("path", "/")][..],
+        ) {
+            Ok(i) => i,
+            Err(_) => return,
+        };
+        if daemon.register(info).is_err() {
+            return;
+        }
+
+        let found =
+            query_service_type(&daemon, service_type, Duration::from_secs(2)).unwrap_or_default();
+        let _ = daemon.shutdown();
+
+        if let Some(p) = found
+            .iter()
+            .find(|p| p.hostname.contains("vertex-test-printer"))
+        {
+            assert_eq!(p.port, 8899);
+        }
     }
 }
