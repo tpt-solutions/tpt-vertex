@@ -6,12 +6,14 @@ on:
     paths:
       - "**.rs"
       - "**/Cargo.toml"
+      - "deny.toml"
       - ".github/workflows/rust.yml"
   pull_request:
     branches: [main]
     paths:
       - "**.rs"
       - "**/Cargo.toml"
+      - "deny.toml"
       - ".github/workflows/rust.yml"
 
 env:
@@ -44,6 +46,24 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Install cargo-deny
+        # RUSTFLAGS is cleared so the workspace-wide `-D warnings` does not fail
+        # the build of third-party tooling crates.
+        run: cargo install cargo-deny --locked
+        env:
+          RUSTFLAGS: ""
+
+      - name: License / ban / source check (cargo-deny)
+        run: cargo deny check
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+        env:
+          RUSTFLAGS: ""
+
+      - name: Vulnerability audit (cargo-audit)
+        run: cargo audit --deny warnings
 
       - name: Build
         run: cargo build --workspace --verbose

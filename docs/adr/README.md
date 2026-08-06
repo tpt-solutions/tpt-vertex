@@ -26,7 +26,7 @@ once accepted — superseded decisions are marked with a new ADR, never rewritte
 | 0001   | Record architecture decisions                      | Accepted |
 | 0002   | Dual MIT OR Apache-2.0 licensing                   | Accepted |
 | 0003   | Monorepo layout (kernel / frontend / desktop)      | Accepted |
-| 0004   | Geometric representation: hybrid B-rep + CSG       | Accepted |
+| 0004   | Geometric representation: hybrid B-rep + CSG       | Accepted (amended by 0013) |
 | 0005   | Version-control storage: custom engine over Git LFS| Accepted |
 | 0006   | Real-time collaboration: custom CRDT               | Accepted |
 | 0007   | Desktop client: Tauri wrapper                       | Accepted |
@@ -35,3 +35,4 @@ once accepted — superseded decisions are marked with a new ADR, never rewritte
 | 0010   | Printer connectivity: unified ESP3D/OctoPrint client | Accepted |
 | 0011   | Polygon-offset library evaluation (Phase 10 fast-follow) | Accepted |
 | 0012   | Closed-loop hardware feedback (design-only)            | Accepted |
+| 0013   | BSP-tree triangle-mesh boolean engine                  | Accepted |

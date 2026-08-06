@@ -257,3 +257,127 @@ License: dual **MIT OR Apache-2.0**.
 - [x] (Fast-follow) Native Moonraker client (`tpt-vertex-printer-link/src/moonraker.rs` — native REST API client for `/printer/info`, `/printer/objects/query`, `/server/files/upload`, etc.; wired as `ProtocolKind::MoonrakerNative` in `make_client()`)
 - [x] (Fast-follow) Move printer API keys from plaintext JSON to OS keychain storage (`tpt-vertex-printer-link/src/keychain.rs` — `keyring` crate integration, `set_printer_key`/`get_printer_key`/`delete_printer_key` Tauri commands)
 - [x] (Fast-follow) Feed printer telemetry/status back into `tpt-vertex-simulation` for closed-loop print-deviation detection (`tpt-vertex-printer-link/src/telemetry.rs` — `TelemetryObservation`/`TelemetryMapping`/`DeviationReport` with thermal warping prediction + `temperature_field()` closure for simulation integration)
+
+---
+
+## Phase 13 — Stub Remediation, Security Hardening & Real Kernel/Frontend Wiring
+
+A full-project review (2026-08-06) found many items above checked off as done
+are Rust-side logic that is real and tested but never reached by the running
+app, or a documented placeholder wired directly into the live evaluator. This
+phase tracks the remediation plan. See
+`docs/security-review.md`/`docs/launch-checklist.md` for the pre-existing,
+self-diagnosed tooling/security gaps this also closes.
+
+### Security fixes
+
+- [ ] Wire OS keychain end-to-end for printer API keys: `save_printer` stores
+      keys via `Keychain::set_key`, never persists `api_key` to
+      `printers.json`; live-control commands rehydrate the key from the
+      keychain on demand (`desktop/src-tauri/src/printer.rs`)
+- [ ] Delete the dead in-memory-only keychain stub
+      (`desktop/src-tauri/src/keychain.rs`) and its `mod keychain;`
+      declaration in `main.rs`
+- [ ] Migrate any existing plaintext `api_key` found in `printers.json` into
+      the keychain on read, stripping it from the JSON store
+- [ ] Update `PrinterPanel.tsx`/`frontend/src/printer/client.ts` to call
+      `set_printer_key`/`get_printer_key`/`delete_printer_key` instead of
+      embedding `api_key` in the saved target; mask the API key input
+      (`type="password"`)
+- [ ] Replace the placeholder FNV-1a password hash with Argon2id in
+      `platform/src/auth.rs` (add `argon2` dep to `platform/Cargo.toml`; keep
+      existing `hash_password`/`verify_password` signatures and
+      `"{salt}${hash}"` format)
+- [ ] Set a real `app.security.csp` in `desktop/src-tauri/tauri.conf.json`
+      (currently `null`)
+- [ ] Flag the Tauri updater `pubkey` placeholder in `tauri.conf.json` as a
+      manual step for a repo owner (generate + securely store a real signing
+      keypair) — not automatable
+
+### Tooling & adoption
+
+- [ ] Add `deny.toml` + `cargo deny check` step to
+      `.github/workflows/rust.yml`
+- [ ] Add `cargo audit` to `rust.yml`; add `npm audit` to `frontend.yml` and
+      `desktop.yml`
+- [ ] Add `.github/dependabot.yml` (cargo + npm for `frontend/` and
+      `desktop/`)
+- [ ] Rewrite `.github/PULL_REQUEST_TEMPLATE.md` as plain Markdown (currently
+      Issue-Forms YAML, which GitHub doesn't render for PR templates)
+- [ ] Generate/commit `desktop/package-lock.json`; switch
+      `desktop.yml`/docs from `npm install` to `npm ci`
+- [ ] Add a root `justfile` (`check`, `fmt`, `test`, `dev-frontend`,
+      `dev-desktop` targets)
+- [ ] Add `.editorconfig` and `CODEOWNERS`
+- [ ] Add `rust-toolchain.toml` pinning the Rust version CI uses
+- [ ] Fix `README.md`: add `tpt-vertex-printer-link` to the workspace list;
+      note Tauri's per-OS system deps in the Desktop build section
+- [ ] Fix stale `tpt-vertex-slicer/README.md` claim that slicing isn't
+      implemented
+- [ ] Move `todo 1260720.md` and `spec.txt` into `docs/history/`
+- [ ] Flip `frontend/eslint.config.js`'s `@typescript-eslint/no-explicit-any`
+      from `off` to `warn` to match documented policy
+
+### Printer auto-setup wizard
+
+- [ ] Build a guided "Find my printer" wizard (`PrinterSetupWizard.tsx`)
+      using the existing `discover_printers` Tauri command / mDNS backend;
+      hook into `PrinterPanel.tsx` alongside manual entry
+
+### Real CSG/boolean engine (ADR-0013)
+
+- [ ] Write ADR-0013 (BSP-tree triangle-mesh boolean approach + known
+      limits); update ADR-0004's status
+- [ ] Implement `tpt-vertex-kernel/src/geometry/csg_bsp.rs` (BSP tree
+      build/clip/invert)
+- [ ] Rewire `union`/`subtract`/`intersect` in
+      `tpt-vertex-kernel/src/geometry/features.rs` onto the real BSP boolean
+- [ ] Implement edge classification (`tpt-vertex-kernel/src/geometry/edges.rs`)
+      and real `fillet`/`chamfer` for planar-faced solids
+- [ ] Extend `tpt-vertex-kernel/tests/integration.rs` with
+      volume/watertightness tests for boolean/fillet/chamfer cases
+- [ ] Update `todo.md` Phase 1 boolean/fillet lines once landed
+
+### Kernel↔frontend wiring (WASM), sketch integration, real slicing
+
+- [ ] Expand `tpt-vertex-kernel/src/wasm.rs`'s API beyond `add_box`
+      (arbitrary sketch entities, revolve, real booleans, fillet/chamfer)
+- [ ] Add a `wasm-pack` build step wired into `frontend/package.json`'s
+      `dev`/`build`
+- [ ] Replace the hardcoded-box logic in `frontend/src/geometry/buildMesh.ts`
+      with real wasm `Model` evaluation
+- [ ] Wire `SketchEditor.tsx`/`state/sketchStore.ts` entities into
+      `state/store.ts` features (close the sketch→feature-tree gap)
+- [ ] Add "Add feature" UI (extrude/revolve/boolean/fillet/chamfer) to
+      `Toolbar.tsx`
+- [ ] Wire `frontend/src/geometry/slicer.ts` to the real
+      `evaluate_model`/`slice_model` Tauri commands under Tauri, keeping the
+      JS approximation as browser-only fallback
+- [ ] Add UI + Tauri command usage for STEP/STL/OBJ/glTF/BOM/drawing export
+      (`manufacturing` crate)
+- [ ] Wire `renderer/src/renderer.rs::material_color` to the real 45-preset
+      `renderer/src/materials.rs` library
+- [ ] Update `todo.md` Phase 2/3/4/6/11 lines that currently overclaim once
+      each lands
+
+### Transparency panel
+
+- [ ] Add a data-driven "what's real vs. placeholder" capability-status
+      manifest (`frontend/src/state/capabilityStatus.ts`) and surface it as
+      feature-tree badges + a status panel
+
+### Real-time collaboration, end-to-end
+
+- [ ] Add a WebSocket sync server binary adapting `SyncHub`/`MemoryAuth`
+      (new deps: async runtime + WS crate)
+- [ ] Add a `wasm` feature to `collab` mirroring the kernel/simulation
+      pattern
+- [ ] Add `frontend/src/collab/client.ts` WebSocket client + presence/
+      multi-cursor overlay in `Viewport.tsx`
+- [ ] Update `todo.md` Phase 4 presence/CRDT lines to reflect running-app
+      status, not just library status
+
+### Ongoing
+
+- [ ] Keep `todo.md` and ADRs (`0004`, new `0013`) updated as each item above
+      lands so the checklist stops overclaiming

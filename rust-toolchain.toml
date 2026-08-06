@@ -1,0 +1,8 @@
+# Pins the Rust toolchain used for local development so it matches CI
+# (.github/workflows/rust.yml uses dtolnay/rust-toolchain@stable with
+# rustfmt + clippy).
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+targets = []
+profile = "default"

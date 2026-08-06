@@ -11,6 +11,7 @@ import { VersionControl } from "./components/VersionControl";
 import { SlicerPanel } from "./components/SlicerPanel";
 import { SimulationPanel } from "./components/SimulationPanel";
 import { PrinterPanel } from "./components/PrinterPanel";
+import { CapabilityStatusPanel } from "./components/CapabilityStatusPanel";
 import { useModelStore } from "./state/store";
 import { useSketchStore } from "./state/sketchStore";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
@@ -21,6 +22,7 @@ export function App() {
   const [slicerOpen, setSlicerOpen] = useState(false);
   const [simOpen, setSimOpen] = useState(false);
   const [printersOpen, setPrintersOpen] = useState(false);
+  const [capabilitiesOpen, setCapabilitiesOpen] = useState(false);
   useKeyboardShortcuts();
   const featureCount = useModelStore((s) => s.features.length);
   const selected = useModelStore((s) => s.selectedFeatureId);
@@ -38,6 +40,7 @@ export function App() {
         onOpenSlicer={() => setSlicerOpen(true)}
         onOpenSimulation={() => setSimOpen(true)}
         onOpenPrinters={() => setPrintersOpen(true)}
+        onOpenCapabilities={() => setCapabilitiesOpen(true)}
       />
       <div className="workspace">
         <aside className="left-rail" aria-label="Model panels">
@@ -57,6 +60,7 @@ export function App() {
       {slicerOpen && <SlicerPanel onClose={() => setSlicerOpen(false)} />}
       {simOpen && <SimulationPanel onClose={() => setSimOpen(false)} />}
       {printersOpen && <PrinterPanel onClose={() => setPrintersOpen(false)} />}
+      {capabilitiesOpen && <CapabilityStatusPanel onClose={() => setCapabilitiesOpen(false)} />}
       <Onboarding />
     </div>
   );

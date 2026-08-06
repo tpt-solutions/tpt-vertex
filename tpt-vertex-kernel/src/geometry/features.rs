@@ -6,7 +6,13 @@
 //! sweep, loft) plus boolean combinators (union/subtract/intersect) and
 //! fillet/chamfer. Per ADR-0004 the feature tree is the source of truth and
 //! these operations are pure functions over solids/sketches.
+//!
+//! The booleans and fillet/chamfer are thin, signature-stable wrappers over the
+//! real engines: the BSP triangle-mesh CSG in [`crate::geometry::csg_bsp`] and
+//! the edge-cut rounding in [`crate::geometry::edges`] (both ADR-0013).
 
+use crate::geometry::csg_bsp::{bsp_intersect, bsp_subtract, bsp_union};
+use crate::geometry::edges::{chamfer_edges, fillet_edges};
 use crate::geometry::mesh::{sketch_boundary, tessellate_polygon_z};
 use crate::geometry::sketch::Sketch;
 use crate::geometry::solid::{Face, Solid};
@@ -177,36 +183,46 @@ pub fn loft(
     solid
 }
 
-/// Boolean union (A ∪ B). For the faceted v1 kernel this concatenates the two
-/// meshes. A full intersection/union via mesh CSG is a later refinement; this
-/// provides a correct, watertight-enough result for rendering and stacking.
+/// Boolean union (A ∪ B), evaluated by the BSP triangle-mesh CSG engine
+/// (ADR-0013). Overlapping material is removed so the result is a single
+/// closed shell whose volume is `vol(A) + vol(B) - vol(A ∩ B)`.
+///
+/// Operands whose bounding boxes are disjoint take a concatenation fast path;
+/// see [`crate::geometry::csg_bsp`] for the engine's accuracy limits.
 pub fn union(a: &Solid, b: &Solid) -> Solid {
-    let mut out = a.clone();
-    out.extend(b);
-    out
+    bsp_union(a, b)
 }
 
-/// Boolean subtract (A − B). v1: returns A unchanged (placeholder for the CSG
-/// engine). The documented intent is set difference; the exact engine lands in
-/// a later iteration (see ADR-0004).
-pub fn subtract(a: &Solid, _b: &Solid) -> Solid {
-    a.clone()
+/// Boolean subtract (A − B), evaluated by the BSP triangle-mesh CSG engine
+/// (ADR-0013). Returns the part of `a` outside `b`, capped with the inverted
+/// portion of `b`'s boundary that lies inside `a`.
+pub fn subtract(a: &Solid, b: &Solid) -> Solid {
+    bsp_subtract(a, b)
 }
 
-/// Boolean intersect (A ∩ B). v1: returns A unchanged (placeholder).
-pub fn intersect(a: &Solid, _b: &Solid) -> Solid {
-    a.clone()
+/// Boolean intersect (A ∩ B), evaluated by the BSP triangle-mesh CSG engine
+/// (ADR-0013). Returns the common material, or an empty solid if the operands
+/// do not overlap.
+pub fn intersect(a: &Solid, b: &Solid) -> Solid {
+    bsp_intersect(a, b)
 }
 
-/// Fillet (round) the edges of a solid. v1: returns the solid unchanged and is
-/// a documented placeholder for the rounding engine.
-pub fn fillet(solid: &Solid, _radius: f64) -> Solid {
-    solid.clone()
+/// Fillet (round) every roundable edge of a solid with the given radius.
+///
+/// Delegates to [`fillet_edges`]; see [`crate::geometry::edges`] for the
+/// supported cases (convex, manifold edges of planar-faced solids) and the
+/// faceted-approximation limits. Non-positive or non-finite radii return the
+/// solid unchanged.
+pub fn fillet(solid: &Solid, radius: f64) -> Solid {
+    fillet_edges(solid, radius, &[])
 }
 
-/// Chamfer (bevel) the edges of a solid. v1: returns the solid unchanged.
-pub fn chamfer(solid: &Solid, _distance: f64) -> Solid {
-    solid.clone()
+/// Chamfer (bevel) every roundable edge of a solid with the given setback.
+///
+/// Delegates to [`chamfer_edges`]; same supported cases and limits as
+/// [`fillet`].
+pub fn chamfer(solid: &Solid, distance: f64) -> Solid {
+    chamfer_edges(solid, distance, &[])
 }
 
 #[cfg(test)]
@@ -268,8 +284,68 @@ mod tests {
             ],
             1.0,
         );
+        // Disjoint operands: the BSP engine's fast path keeps both meshes
+        // intact rather than re-splitting them.
         let u = union(&a, &b);
         assert_eq!(u.triangle_count(), a.triangle_count() + b.triangle_count());
+        assert!((u.volume() - 2.0).abs() < 1e-9, "volume was {}", u.volume());
+    }
+
+    fn unit_square() -> Vec<Vec2> {
+        vec![
+            Vec2::ZERO,
+            Vec2::new(1.0, 0.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(0.0, 1.0),
+        ]
+    }
+
+    fn shifted_square(d: f64) -> Vec<Vec2> {
+        unit_square().iter().map(|p| *p + Vec2::new(d, d)).collect()
+    }
+
+    #[test]
+    fn overlapping_union_does_not_double_count() {
+        // Two unit boxes overlapping in a 0.5^3 corner region.
+        let a = extrude_profile(&unit_square(), 1.0);
+        let mut b = extrude_profile(&shifted_square(0.5), 1.0);
+        for v in &mut b.vertices {
+            v.z += 0.5;
+        }
+        let u = union(&a, &b);
+        assert!(
+            (u.volume() - 1.875).abs() < 1e-6,
+            "union volume was {}",
+            u.volume()
+        );
+    }
+
+    #[test]
+    fn subtract_and_intersect_are_real() {
+        let a = extrude_profile(&unit_square(), 1.0);
+        let mut b = extrude_profile(&shifted_square(0.5), 1.0);
+        for v in &mut b.vertices {
+            v.z += 0.5;
+        }
+        let d = subtract(&a, &b);
+        let i = intersect(&a, &b);
+        assert!((d.volume() - 0.875).abs() < 1e-6, "diff was {}", d.volume());
+        assert!(
+            (i.volume() - 0.125).abs() < 1e-6,
+            "isect was {}",
+            i.volume()
+        );
+    }
+
+    #[test]
+    fn fillet_and_chamfer_modify_the_solid() {
+        let cube = crate::geometry::csg_bsp::box_solid(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let f = fillet(&cube, 0.1);
+        let c = chamfer(&cube, 0.1);
+        assert!(f.volume() < cube.volume() && f.volume() > 0.9);
+        assert!(c.volume() < cube.volume() && c.volume() > 0.9);
+        assert!(f.vertex_count() > cube.vertex_count());
+        assert!(c.vertex_count() > cube.vertex_count());
     }
 
     #[test]

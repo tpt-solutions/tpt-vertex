@@ -1,0 +1,37 @@
+# cargo-deny configuration for the TPT Vertex Rust workspace.
+#
+#   cargo install cargo-deny --locked
+#   cargo deny check
+#
+# Checks: licenses (allow-list), bans (duplicate/banned crates) and sources
+# (which registries crates may come from).
+
+[licenses]
+# Only permissive / weak-copyleft licenses that are compatible with shipping
+# TPT Vertex under "MIT OR Apache-2.0".
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "CC0-1.0",
+    "MPL-2.0",
+]
+# Minimum confidence of the license-text detector before a license is accepted.
+confidence-threshold = 0.8
+
+[bans]
+# Duplicate versions of the same crate are common in a large dependency graph;
+# report them but do not fail the build.
+multiple-versions = "warn"
+# Wildcard version requirements are allowed (path/workspace deps use them).
+wildcards = "allow"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

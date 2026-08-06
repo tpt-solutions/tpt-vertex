@@ -7,6 +7,7 @@ export function Toolbar({
   onOpenSlicer,
   onOpenSimulation,
   onOpenPrinters,
+  onOpenCapabilities,
 }: {
   onToggleTheme: () => void;
   onOpenSketch: () => void;
@@ -14,6 +15,7 @@ export function Toolbar({
   onOpenSlicer: () => void;
   onOpenSimulation: () => void;
   onOpenPrinters: () => void;
+  onOpenCapabilities: () => void;
 }) {
   const undo = useModelStore((s) => s.undo);
   const redo = useModelStore((s) => s.redo);
@@ -42,6 +44,9 @@ export function Toolbar({
         </button>
         <button onClick={onOpenSimulation} title="Run simulation &amp; motion study">
           Simulate
+        </button>
+        <button onClick={onOpenCapabilities} title="What's real vs. placeholder">
+          Capabilities
         </button>
         <button onClick={onToggleTheme} title="Toggle theme">
           Theme

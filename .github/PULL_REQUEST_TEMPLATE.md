@@ -1,43 +1,16 @@
-name: Pull Request
+# Summary
 
-description: Submit changes to TPT Vertex
-title: "[<type>]: <short summary>"
-labels: []
+<!-- What does this PR do, and why? Keep it to a few sentences. -->
 
-body:
-  - type: markdown
-    attributes:
-      value: |
-        Thanks for contributing to TPT Vertex! Please fill out the checklist below.
+## Related issues
 
-  - type: textarea
-    id: summary
-    attributes:
-      label: Summary
-      description: What does this PR do and why?
-    validations:
-      required: true
+<!-- e.g. "Closes #123" -->
 
-  - type: textarea
-    id: related
-    attributes:
-      label: Related issues
-      placeholder: "Closes #123"
+## Checklist
 
-  - type: checkboxes
-    id: checklist
-    attributes:
-      label: Checklist
-      options:
-        - label: My changes build cleanly (`cargo build` / `npm run build`)
-          required: true
-        - label: I added/updated tests where relevant
-          required: true
-        - label: I ran the linters (`cargo clippy`, `eslint`, `prettier`, `cargo fmt`)
-          required: true
-        - label: My code follows the project's coding standards
-          required: true
-        - label: I updated documentation where needed
-          required: false
-        - label: I agree my contribution is licensed under MIT OR Apache-2.0
-          required: true
+- [ ] My changes build cleanly (`cargo build --workspace` / `npm run build`)
+- [ ] I added or updated tests where relevant
+- [ ] I ran the linters (`cargo fmt --all`, `cargo clippy`, `eslint`, `prettier`)
+- [ ] My code follows the project's coding standards (see [CONTRIBUTING.md](../CONTRIBUTING.md))
+- [ ] I updated documentation where needed
+- [ ] I agree my contribution is licensed under MIT OR Apache-2.0

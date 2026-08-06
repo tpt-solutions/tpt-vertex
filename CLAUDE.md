@@ -94,13 +94,16 @@ npm run tauri dev
   generation (including adaptive layers, variable width, bridging, seam
   placement, support), polygon offsetting (see ADR-0011 for the offset library
   evaluation), and presets/plugins.
-- **`tpt-vertex-simulation`** (ADR-0009) is deliberately scoped to linear
-  static-stress FEA plus assembly motion/kinematics, isolated from the main
-  solver stack. The global linear solve currently uses a self-contained dense
-  LU (`src/solve.rs`) rather than pulling in `faer`, specifically to keep the
-  crate dependency-free and auditable for v1 — swapping in `faer` is meant to
-  be a contained change inside that one file; don't spread solver-backend
-  assumptions elsewhere.
+- **`tpt-vertex-simulation`** (ADR-0009) started scoped to linear static-stress
+  FEA plus assembly motion/kinematics, and has since grown to include nonlinear
+  (J2 plasticity, geometric/T.L. large-deformation), contact, rigid-body
+  dynamics, thermal + thermal-stress, fatigue, modal, buckling, higher-order
+  (10-node quad tet) elements, adaptive mesh refinement, contact-coupled
+  assembly FEA, and topology optimization. The global sparse linear solve uses
+  `faer`, contained to `simulation/` only (`src/solve.rs`); the `wasm` feature
+  drops `faer`/rayon for a dense LU path so it builds for
+  `wasm32-unknown-unknown` — keep solver-backend assumptions inside that one
+  file and don't spread them elsewhere.
 - **`tpt-vertex-printer-link`** (ADR-0010) is a unified client for
   ESP3D/OctoPrint (+ Moonraker-compatible) network printers, used for
   uploading slicer output and tracking print job status. It's TLS-optional by
@@ -112,6 +115,18 @@ npm run tauri dev
   simulation, and printer-link crates directly by path for offline-first local
   evaluation with no server dependency, and exposes them to the WebView via
   Tauri commands (`desktop/src-tauri/src/main.rs`).
+
+## Status & honesty
+
+A 2026-08-06 project-wide review (tracked in `todo.md` Phase 13) found that many
+checked-off items are real, tested Rust logic that is **not yet reached by the
+running app**, or documented placeholders wired directly into the live
+evaluator (e.g. the feature-tree boolean/fillet ops are CSG placeholders, and
+CRDT collaboration/simulation are implemented as libraries but not yet wired
+end-to-end into the frontend). Before claiming a capability works in the running
+app, verify it's actually reachable from the WASM/desktop path. Keep `todo.md`
+and the relevant ADRs updated as each remediation item lands so the checklist
+stops overclaiming.
 
 ## Conventions
 

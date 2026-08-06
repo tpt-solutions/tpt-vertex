@@ -1,4 +1,5 @@
 import { useModelStore } from "../state/store";
+import { STATUS_META, capabilityForFeatureType } from "../state/capabilityStatus";
 
 export function FeatureTreePanel() {
   const features = useModelStore((s) => s.features);
@@ -11,28 +12,45 @@ export function FeatureTreePanel() {
     <section className="panel feature-tree" aria-label="Feature tree">
       <h2 className="panel-title">Feature Tree</h2>
       <ul role="listbox" aria-label="Features" aria-activedescendant={selected ?? undefined}>
-        {features.map((f) => (
-          <li
-            key={f.id}
-            id={f.id}
-            role="option"
-            tabIndex={0}
-            aria-selected={f.id === selected}
-            className={(f.id === selected ? "selected " : "") + (f.id === hovered ? "hovered" : "")}
-            onClick={() => setSelected(f.id)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setSelected(f.id);
+        {features.map((f) => {
+          // Phase 13 transparency: flag features backed by a placeholder/WIP
+          // subsystem (booleans, fillet/chamfer) straight in the tree.
+          const cap = capabilityForFeatureType(f.type);
+          const flagged = cap && cap.status !== "real" ? cap : null;
+          return (
+            <li
+              key={f.id}
+              id={f.id}
+              role="option"
+              tabIndex={0}
+              aria-selected={f.id === selected}
+              className={
+                (f.id === selected ? "selected " : "") + (f.id === hovered ? "hovered" : "")
               }
-            }}
-            onMouseEnter={() => setHovered(f.id)}
-            onMouseLeave={() => setHovered(null)}
-          >
-            <span className={`badge ${f.type}`}>{f.type}</span>
-            {f.label}
-          </li>
-        ))}
+              onClick={() => setSelected(f.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelected(f.id);
+                }
+              }}
+              onMouseEnter={() => setHovered(f.id)}
+              onMouseLeave={() => setHovered(null)}
+            >
+              <span className={`badge ${f.type}`}>{f.type}</span>
+              {f.label}
+              {flagged && (
+                <span
+                  className={`badge status-badge status-${flagged.status}`}
+                  title={flagged.notes}
+                  aria-label={`${flagged.label}: ${STATUS_META[flagged.status].label}. ${flagged.notes}`}
+                >
+                  {STATUS_META[flagged.status].label}
+                </span>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

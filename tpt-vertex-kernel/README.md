@@ -7,11 +7,11 @@ Provides math primitives (vectors, matrices, quaternions, transforms), 2D sketch
 primitives and constraint solving, a parametric feature tree (extrude, revolve,
 sweep, loft, boolean, fillet/chamfer) with rebuild/recompute, and assembly/mating
 for multi-part positioning. Ships with optional `wasm` (browser/WebGPU) and `ffi`
-(native desktop) build targets.
+(native desktop) build targets. A `Material` table (density, elastic moduli, yield
+strength) is shared with the slicer and simulation crates.
 
-`Solid` — a faceted boundary representation (triangle mesh over a shared vertex
-pool) — is the kernel's output type, consumed by the renderer, manufacturing
-export, slicer, and simulation crates.
+The kernel is **fully implemented** (Phase 1 of the roadmap) and is the source of
+truth for geometry across the platform.
 
 ## License
 

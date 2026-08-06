@@ -38,6 +38,22 @@ let status = client.status()?;
 println!("state: {}, tool: {}°C", status.state.label(), status.temps.tool);
 ```
 
+## Cloud hand-off & closed-loop feedback
+
+Beyond driving a physical printer, the crate also carries the client side of two
+platform features:
+
+- **Cloud project hand-off** (`cloud` module) — `fetch_cloud_project` opens a
+  cloud-hosted project by id, performing the HTTP fetch + JSON parse against a
+  configurable endpoint. This is a *best-effort stub*: the hosted platform it targets
+  is not deployed yet, so it cannot be verified end-to-end. The desktop app exposes
+  it as the `open_cloud_project` Tauri command.
+- **Closed-loop hardware feedback** (`feedback` module, see
+  [ADR-0012](https://github.com/tpt-solutions/vertex/blob/main/docs/adr/0012-closed-loop-hardware-feedback.md))
+  — a data-only `HardwareFeedback` trait plus a pure `ClosedLoopController` that maps
+  a sensor reading (filament width, temperatures) to a print correction. No firmware
+  is involved yet; the firmware-integration pass is deferred.
+
 ## Design notes
 
 - **Connection vs. machine config.** A [`PrinterTarget`] describes *how to reach*

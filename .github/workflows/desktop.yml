@@ -49,6 +49,16 @@ jobs:
         run: npm install
         working-directory: desktop
 
+      - name: Dependency audit (frontend)
+        run: npm audit --audit-level=high
+        working-directory: frontend
+        continue-on-error: true
+
+      - name: Dependency audit (desktop)
+        run: npm audit --audit-level=high
+        working-directory: desktop
+        continue-on-error: true
+
       - name: Rust backend tests
         run: cargo test --manifest-path desktop/src-tauri/Cargo.toml
 

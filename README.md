@@ -39,6 +39,9 @@ Vertex fixes this:
 | Frontend UI          | React Three Fiber (React + Three.js) + Vite + TypeScript         |
 | Version Control      | Custom manifest + blob engine (see ADR-0005)                    |
 | Desktop Client       | Tauri (Rust core, no Electron bloat)                             |
+| Slicing & 3D Printing | `tpt-vertex-slicer` (FDM slicing → G-code)                    |
+| Simulation & Analysis | `tpt-vertex-simulation` (static FEA + assembly motion)        |
+| Printer Connectivity | `tpt-vertex-printer-link` (ESP3D / OctoPrint / Moonraker)       |
 
 ## Repository Layout
 
@@ -54,6 +57,7 @@ vertex/
 ├── platform/              # Accounts, orgs/teams, projects, sharing, storage backend
 ├── tpt-vertex-slicer/     # FDM slicing engine (planar layers, infill, G-code)
 ├── tpt-vertex-simulation/ # Static FEA + assembly motion/kinematics
+├── tpt-vertex-printer-link/ # Printer connectivity (ESP3D / OctoPrint / Moonraker)
 ├── frontend/        # Web UI (React Three Fiber, Vite, TypeScript)
 ├── desktop/         # Tauri desktop client wrapping the web frontend
 ├── docs/            # Documentation, user guide, and ADRs
@@ -64,7 +68,8 @@ vertex/
 ```
 
 The Rust workspace members are `tpt-vertex-kernel`, `renderer`, `manufacturing`,
-`versioning`, `collab`, `platform`, `tpt-vertex-slicer`, and `tpt-vertex-simulation`.
+`versioning`, `collab`, `platform`, `tpt-vertex-slicer`, `tpt-vertex-simulation`,
+and `tpt-vertex-printer-link`.
 The `frontend` and `desktop` packages are
 excluded from the Cargo workspace so they use their own JS toolchains (`desktop`
 still embeds the kernel crates by path for offline evaluation).
@@ -125,6 +130,14 @@ npm run test     # vitest
 ```
 
 ### Desktop
+
+Tauri needs a few system dependencies in addition to Rust and Node:
+
+- **Linux** — `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`,
+  `librsvg2-dev` (plus `patchelf` for bundling).
+- **Windows** — the MSVC build tools (Visual Studio Build Tools with the
+  "Desktop development with C++" workload) and the WebView2 runtime.
+- **macOS** — not supported (see the ADRs / project decisions).
 
 ```sh
 cd desktop

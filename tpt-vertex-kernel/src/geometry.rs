@@ -3,6 +3,8 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 
 pub mod constraint;
+pub mod csg_bsp;
+pub mod edges;
 pub mod features;
 pub mod mesh;
 pub mod sketch;
