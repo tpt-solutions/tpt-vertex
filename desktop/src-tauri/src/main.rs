@@ -16,13 +16,17 @@
 use serde::{Deserialize, Serialize};
 
 mod cloud;
-mod keychain;
 mod printer;
 
+use tpt_vertex_kernel::assembly::{Assembly, Part};
 use tpt_vertex_kernel::feature_tree::{Feature, FeatureTree};
 use tpt_vertex_kernel::geometry::sketch::Sketch;
 use tpt_vertex_kernel::geometry::solid::Solid;
 use tpt_vertex_kernel::math::Vec2;
+use tpt_vertex_manufacturing::{
+    bom::bom_simple, drawing::drawing_svg, export::write_stl_ascii, export::write_stl_binary,
+    StlError,
+};
 
 /// A minimal serializable description of a model coming from the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,8 +38,8 @@ pub struct ModelSpec {
 }
 
 impl ModelSpec {
-    /// Build the kernel solid for this spec (shared by all commands).
-    fn to_solid(&self) -> Solid {
+    /// Build the kernel feature tree for this spec (shared by all commands).
+    fn to_tree(&self) -> FeatureTree {
         let [x0, y0, x1, y1] = self.rect;
         let mut s = Sketch::new();
         s.line(Vec2::new(x0, y0), Vec2::new(x1, y0));
@@ -50,7 +54,15 @@ impl ModelSpec {
             },
             None,
         );
-        tree.evaluate().map(|e| e.final_solid).unwrap_or_default()
+        tree
+    }
+
+    /// Build the kernel solid for this spec (shared by all commands).
+    fn to_solid(&self) -> Solid {
+        self.to_tree()
+            .evaluate()
+            .map(|e| e.final_solid)
+            .unwrap_or_default()
     }
 }
 
@@ -101,6 +113,69 @@ fn export_step_text(spec: ModelSpec, name: String) -> Result<String, String> {
     let mut buf: Vec<u8> = Vec::new();
     tpt_vertex_manufacturing::export_step(&mut buf, &solid, &name).map_err(|e| e.to_string())?;
     String::from_utf8(buf).map_err(|e| e.to_string())
+}
+
+/// glTF export payload: the scene JSON and its binary buffer.
+#[derive(Debug, Clone, Serialize)]
+struct GltfExport {
+    json: String,
+    bin: Vec<u8>,
+}
+
+/// Build a single-part assembly from a spec (used by the BOM export).
+fn spec_to_assembly(spec: &ModelSpec) -> Assembly {
+    let mut asm = Assembly::new();
+    asm.add_part(Part::new("Part 1", spec.to_tree()));
+    asm
+}
+
+/// Tauri command: export the given spec to binary STL (offline).
+#[tauri::command]
+fn export_stl_binary(spec: ModelSpec) -> Result<Vec<u8>, String> {
+    let solid = spec.to_solid();
+    let mut buf: Vec<u8> = Vec::new();
+    write_stl_binary(&mut buf, &solid).map_err(|e: StlError| e.to_string())?;
+    Ok(buf)
+}
+
+/// Tauri command: export the given spec to ASCII STL (offline).
+#[tauri::command]
+fn export_stl_ascii(spec: ModelSpec) -> Result<String, String> {
+    let solid = spec.to_solid();
+    let mut buf: Vec<u8> = Vec::new();
+    write_stl_ascii(&mut buf, &solid).map_err(|e: StlError| e.to_string())?;
+    String::from_utf8(buf).map_err(|e| e.to_string())
+}
+
+/// Tauri command: export the given spec to Wavefront OBJ (offline).
+#[tauri::command]
+fn export_obj(spec: ModelSpec) -> Result<String, String> {
+    let solid = spec.to_solid();
+    let mut buf: Vec<u8> = Vec::new();
+    tpt_vertex_manufacturing::export_obj(&mut buf, &solid).map_err(|e: StlError| e.to_string())?;
+    String::from_utf8(buf).map_err(|e| e.to_string())
+}
+
+/// Tauri command: export the given spec to glTF (JSON + binary buffer, offline).
+#[tauri::command]
+fn export_gltf(spec: ModelSpec) -> Result<GltfExport, String> {
+    let solid = spec.to_solid();
+    let (json, bin) = tpt_vertex_manufacturing::export_gltf(&solid).map_err(|e: StlError| e.to_string())?;
+    Ok(GltfExport { json, bin })
+}
+
+/// Tauri command: generate a 2D drawing / blueprint (SVG) from the spec (offline).
+#[tauri::command]
+fn export_drawing(spec: ModelSpec) -> Result<String, String> {
+    let solid = spec.to_solid();
+    Ok(drawing_svg(&solid))
+}
+
+/// Tauri command: generate a bill of materials (Markdown) for the spec (offline).
+#[tauri::command]
+fn export_bom(spec: ModelSpec) -> Result<String, String> {
+    let asm = spec_to_assembly(&spec);
+    Ok(bom_simple(&asm).to_markdown())
 }
 
 /// Slice settings coming from the frontend slicer panel.
@@ -433,6 +508,12 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             evaluate_model,
             export_step_text,
+            export_stl_binary,
+            export_stl_ascii,
+            export_obj,
+            export_gltf,
+            export_drawing,
+            export_bom,
             slice_model,
             run_static_analysis,
             run_motion_frame,

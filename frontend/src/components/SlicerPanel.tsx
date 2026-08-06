@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useModelStore } from "../state/store";
 import {
   sliceModel,
+  sliceModelWithBackend,
   DEFAULT_SLICE_SETTINGS,
   type SliceSettings,
   type SliceResult,
@@ -36,8 +37,8 @@ export function SlicerPanel({ onClose }: { onClose: () => void }) {
   const update = <K extends keyof SliceSettings>(key: K, value: SliceSettings[K]) =>
     setSettings((s) => ({ ...s, [key]: value }));
 
-  const doSlice = () => {
-    const r = sliceModel(features, settings);
+  const doSlice = async () => {
+    const r = (await sliceModelWithBackend(features, settings)) ?? sliceModel(features, settings);
     setResult(r);
     setLayerIndex(0);
   };

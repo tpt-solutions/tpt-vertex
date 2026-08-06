@@ -70,6 +70,13 @@ boolean and fillet/chamfer operations through it.
   probing, because the same intersection point computed from two adjacent
   polygons can differ by a few ULPs) and exactly-degenerate triangles are
   dropped.
+- A T-junction healing pass runs after each boolean. BSP splitting is
+  one-sided, so a face on one side of a shared edge can be subdivided while its
+  neighbour is not: no gap in area, but an edge used by a single triangle.
+  Healing splits such edges at the vertices already lying on them, which makes
+  the output combinatorially manifold as well as geometrically closed. The
+  `bsp_*_raw` variants skip it for callers that chain many booleans and heal
+  once at the end.
 - Operands with disjoint bounding boxes take a fast path: union concatenates,
   difference returns the target, intersection returns empty. This is both
   faster and lossless — the general path would needlessly re-split every face.
@@ -82,12 +89,17 @@ boolean and fillet/chamfer operations through it.
   between its adjacent faces as `Convex`, `Concave`, `Smooth` (within
   tolerance), `Boundary` (one adjacent face) or `NonManifold` (three or more).
 - Fillet and chamfer are built on the boolean engine rather than on ad-hoc mesh
-  surgery: each selected convex edge contributes one (chamfer) or `n` (fillet)
-  cutting planes, and the solid is intersected with the corresponding
-  half-spaces. The fillet planes are tangent to the inscribed rolling-ball
-  cylinder — the line at distance `radius` from both adjacent face planes — so
-  the result is a genuine faceted approximation of the rolling-ball surface
-  rather than a cosmetic vertex nudge.
+  surgery. For each selected convex edge the kernel builds a *cutting tool*: the
+  prism swept along the edge whose cross-section is the material between the
+  edge and the blend surface. For a chamfer that cross-section is the setback
+  triangle; for a fillet it is the region between the edge and the arc of the
+  inscribed rolling-ball cylinder (the line at distance `radius` from both
+  adjacent face planes), sampled into facets whose corners lie exactly on the
+  cylinder. The tools are subtracted from the solid, so the operation is local:
+  unlike a half-space cut, an over-large radius cannot slice unrelated geometry
+  on the far side of the part. Tools are inflated slightly outward so none of
+  their faces is exactly coplanar with the solid, and tools with disjoint bounds
+  are merged into one multi-part cutter so a single boolean rounds many edges.
 
 ## Consequences
 
@@ -97,6 +109,8 @@ Positive:
   common material, `union` counts the overlap once. Every downstream consumer
   (slicer, exporters, mass properties, simulation) now sees geometry that
   matches the feature tree's intent.
+- Output of well-behaved operands is closed *and* 2-manifold, which is what
+  slicing, STL export and edge classification want.
 - Fillet and chamfer produce genuinely modified solids on planar-faced parts,
   which unblocks the corresponding UI/feature-tree work.
 - No new dependencies; pure `f64` Rust, so the engine builds for native, WASM
@@ -119,29 +133,38 @@ Negative / limits (accepted, and documented in the module headers):
   are resolved by the coplanar-front/coplanar-back rule, which is correct for
   the common cases but can leave coincident faces on the shared boundary. Near-
   degenerate slivers are dropped on output, not repaired.
-- **T-junctions.** BSP splitting is one-sided, so output meshes are
-  geometrically closed (vector area `∮ n dA` is zero, which is what the
-  integration tests assert) but not always combinatorially 2-manifold. Slicing
-  and rendering tolerate this; a future edge-based watertightness pass should
-  weld the T-junctions out.
-- **Triangle-count growth.** Repeated booleans fragment faces. There is no
-  coplanar-face merge/retriangulation pass yet; long feature histories will
+- **Manifoldness is repaired, not guaranteed.** The healing pass closes the
+  T-junctions the engine itself creates and is bounded by a pass/growth cap; on
+  pathological input it can stop early, leaving a mesh that is geometrically
+  closed (vector area `∮ n dA` is zero, which is what the integration tests
+  assert) but not fully 2-manifold.
+- **Triangle-count growth.** BSP clipping splits by *planes*, not by bounded
+  faces, so faces far from the actual intersection can still be cut. There is
+  no coplanar-face merge/retriangulation pass yet; long feature histories
   accumulate triangles.
-- **Fillet/chamfer restrictions.** Plane cuts only remove material, so only
-  convex, manifold edges are supported — concave edges (which need material
-  added) and smooth/boundary edges are skipped. A plane cut is global, so a
-  radius that is large relative to the feature will slice unrelated geometry;
+- **Fillet/chamfer restrictions.** The tools are subtractive, so only convex,
+  manifold edges are supported — concave edges (which need material added) and
+  smooth/boundary edges are skipped. Where several rounded edges meet, their
+  tools simply overlap: the corner is cut, but it is not the exact spherical
+  corner patch an exact kernel would build. Nothing verifies that the blend
+  still fits on the adjacent faces, so an over-large radius over-cuts locally;
   cuts that would empty the solid are skipped rather than applied. Fillets are
-  circumscribed faceted approximations of the true arc, refined by raising the
-  segment count. Variable-radius, face-to-face and corner-blend fillets are not
+  inscribed faceted approximations of the true arc, refined by raising the
+  segment count. Rounding costs one boolean per batch of disjoint edges, so
+  rounding *every* edge of a dense mesh is expensive and is bounded by an
+  explicit edge/triangle budget; past the budget the remaining edges are left
+  sharp. Variable-radius, face-to-face and corner-blend fillets are not
   supported.
 
 Follow-up work:
 
-- A watertightness/repair pass (T-junction welding, coplanar face merging,
-  orientation fixing) in front of and behind the engine.
+- A general repair pass in front of the engine (orientation fixing, hole
+  filling, self-intersection removal) so bad input fails loudly instead of
+  silently.
+- Coplanar-face merging after booleans to keep triangle counts down.
 - Exact predicates or a snap-rounding scheme if coplanar robustness becomes a
   practical problem on real parts.
+- True corner blends (and concave-edge fillets, which need additive tools).
 - Revisit an exact B-rep boolean when NURBS surfaces land; ADR-0004's migration
   boundary (`Solid`/`Face`/`Edge`) still contains that change, and this ADR does
   not close that door.

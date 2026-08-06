@@ -52,6 +52,28 @@ fn assert_closed(solid: &Solid, what: &str) {
     );
 }
 
+/// Edges used by exactly one face: real holes or T-junctions. The BSP engine
+/// heals these, so well-behaved operands should yield zero.
+fn open_edge_count(solid: &Solid) -> usize {
+    use std::collections::HashMap;
+    let mut counts: HashMap<(u32, u32), u32> = HashMap::new();
+    for f in &solid.faces {
+        let idx = [f.a, f.b, f.c];
+        for k in 0..3 {
+            let (a, b) = (idx[k], idx[(k + 1) % 3]);
+            *counts
+                .entry(if a < b { (a, b) } else { (b, a) })
+                .or_insert(0) += 1;
+        }
+    }
+    counts.values().filter(|c| **c == 1).count()
+}
+
+fn assert_manifold(solid: &Solid, what: &str) {
+    let open = open_edge_count(solid);
+    assert_eq!(open, 0, "{what} has {open} open (single-face) edges");
+}
+
 // ---- feature tree ----------------------------------------------------------
 
 #[test]
@@ -217,6 +239,7 @@ fn bsp_union_two_cubes_volume() {
     let (min, max) = u.bounds().unwrap();
     assert!((min.x - 0.0).abs() < 1e-9 && (max.x - 1.5).abs() < 1e-9);
     assert_closed(&u, "union");
+    assert_manifold(&u, "union");
 }
 
 #[test]
@@ -236,6 +259,7 @@ fn bsp_subtract_cube_from_cube() {
         partial.volume()
     );
     assert_closed(&partial, "partial difference");
+    assert_manifold(&partial, "partial difference");
 
     // Fully enclosed by the tool: nothing is left.
     let swallowed = bsp_subtract(
@@ -260,6 +284,21 @@ fn bsp_subtract_cube_from_cube() {
         hollow.volume()
     );
     assert_closed(&hollow, "hollowed block");
+    assert_manifold(&hollow, "hollowed block");
+
+    // A pocket cut through the middle of a face is the case that produces
+    // T-junctions; the engine's healing pass must leave it manifold.
+    let pocket = bsp_subtract(
+        &a,
+        &box_solid(Vec3::new(0.25, 0.25, -0.5), Vec3::new(0.75, 0.75, 0.5)),
+    );
+    assert!(
+        (pocket.volume() - 0.875).abs() < 1e-9,
+        "{}",
+        pocket.volume()
+    );
+    assert_closed(&pocket, "pocket");
+    assert_manifold(&pocket, "pocket");
 }
 
 #[test]
@@ -280,6 +319,7 @@ fn bsp_intersect() {
     let (min, max) = i.bounds().unwrap();
     assert!(min.x >= 0.5 - 1e-9 && max.x <= 1.0 + 1e-9);
     assert_closed(&i, "intersection");
+    assert_manifold(&i, "intersection");
 
     // Non-overlapping operands intersect to nothing.
     assert_eq!(
@@ -327,6 +367,7 @@ fn fillet_chamfer_returns_valid_solid() {
         );
         assert!(out.surface_area().is_finite());
         assert_closed(&out, label);
+        assert_manifold(&out, label);
     }
 
     // Filleting a single selected edge only affects that edge.
@@ -375,6 +416,10 @@ fn booleans_watertight_or_nan_free() {
                 out.surface_area().is_finite(),
                 "{op} with {label} produced a non-finite area"
             );
+            if out.triangle_count() > 0 {
+                assert_closed(&out, &format!("{op}/{label}"));
+                assert_manifold(&out, &format!("{op}/{label}"));
+            }
             for f in &out.faces {
                 let n = out.vertex_count() as u32;
                 assert!(

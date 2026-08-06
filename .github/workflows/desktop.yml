@@ -46,7 +46,7 @@ jobs:
         working-directory: frontend
 
       - name: Install desktop dependencies
-        run: npm install
+        run: npm ci
         working-directory: desktop
 
       - name: Dependency audit (frontend)

@@ -34,8 +34,8 @@ License: dual **MIT OR Apache-2.0**.
 - [x] Build 2D sketch constraint solver (coincident, parallel, perpendicular, dimensional, etc.)
 - [x] Design parametric feature tree data structure (dependency graph of operations)
 - [x] Implement core features: extrude, revolve, sweep, loft
-- [x] Implement boolean operations (union, subtract, intersect) — exact CSG is a v1 placeholder (ADR-0004)
-- [x] Implement fillet/chamfer operations — v1 placeholders (exact rounding is later refinement)
+- [x] Implement boolean operations (union, subtract, intersect) — real BSP-tree triangle-mesh boolean engine (ADR-0013); exact B-rep booleans remain a documented future refinement
+- [x] Implement fillet/chamfer operations — real subtractive-cutting fillet/chamfer for planar-faced solids (edges.rs); exact rolling-ball/corner blends are a documented future refinement (ADR-0013)
 - [x] Implement feature-tree evaluation/rebuild engine (recompute on parameter change)
 - [x] Implement assembly/mating structure (multi-part positioning, joints/constraints)
 - [x] Write unit tests for kernel math and constraint solver
@@ -271,72 +271,73 @@ self-diagnosed tooling/security gaps this also closes.
 
 ### Security fixes
 
-- [ ] Wire OS keychain end-to-end for printer API keys: `save_printer` stores
+- [x] Wire OS keychain end-to-end for printer API keys: `save_printer` stores
       keys via `Keychain::set_key`, never persists `api_key` to
       `printers.json`; live-control commands rehydrate the key from the
       keychain on demand (`desktop/src-tauri/src/printer.rs`)
-- [ ] Delete the dead in-memory-only keychain stub
+- [x] Delete the dead in-memory-only keychain stub
       (`desktop/src-tauri/src/keychain.rs`) and its `mod keychain;`
       declaration in `main.rs`
-- [ ] Migrate any existing plaintext `api_key` found in `printers.json` into
+- [x] Migrate any existing plaintext `api_key` found in `printers.json` into
       the keychain on read, stripping it from the JSON store
-- [ ] Update `PrinterPanel.tsx`/`frontend/src/printer/client.ts` to call
+- [x] Update `PrinterPanel.tsx`/`frontend/src/printer/client.ts` to call
       `set_printer_key`/`get_printer_key`/`delete_printer_key` instead of
       embedding `api_key` in the saved target; mask the API key input
       (`type="password"`)
-- [ ] Replace the placeholder FNV-1a password hash with Argon2id in
+- [x] Replace the placeholder FNV-1a password hash with Argon2id in
       `platform/src/auth.rs` (add `argon2` dep to `platform/Cargo.toml`; keep
       existing `hash_password`/`verify_password` signatures and
       `"{salt}${hash}"` format)
-- [ ] Set a real `app.security.csp` in `desktop/src-tauri/tauri.conf.json`
+- [x] Set a real `app.security.csp` in `desktop/src-tauri/tauri.conf.json`
       (currently `null`)
 - [ ] Flag the Tauri updater `pubkey` placeholder in `tauri.conf.json` as a
-      manual step for a repo owner (generate + securely store a real signing
-      keypair) — not automatable
+       manual step for a repo owner (generate + securely store a real signing
+       keypair) — **not automatable; flagged for a repo owner (see `docs/launch-checklist.md`)**
 
 ### Tooling & adoption
 
-- [ ] Add `deny.toml` + `cargo deny check` step to
+- [x] Add `deny.toml` + `cargo deny check` step to
       `.github/workflows/rust.yml`
-- [ ] Add `cargo audit` to `rust.yml`; add `npm audit` to `frontend.yml` and
+- [x] Add `cargo audit` to `rust.yml`; add `npm audit` to `frontend.yml` and
       `desktop.yml`
-- [ ] Add `.github/dependabot.yml` (cargo + npm for `frontend/` and
+- [x] Add `.github/dependabot.yml` (cargo + npm for `frontend/` and
       `desktop/`)
-- [ ] Rewrite `.github/PULL_REQUEST_TEMPLATE.md` as plain Markdown (currently
-      Issue-Forms YAML, which GitHub doesn't render for PR templates)
-- [ ] Generate/commit `desktop/package-lock.json`; switch
+- [x] Rewrite `.github/PULL_REQUEST_TEMPLATE.md` as plain Markdown (currently
+Issue-Forms YAML, which GitHub doesn't render for PR templates)
+- [x] Generate/commit `desktop/package-lock.json`; switch
       `desktop.yml`/docs from `npm install` to `npm ci`
-- [ ] Add a root `justfile` (`check`, `fmt`, `test`, `dev-frontend`,
-      `dev-desktop` targets)
-- [ ] Add `.editorconfig` and `CODEOWNERS`
-- [ ] Add `rust-toolchain.toml` pinning the Rust version CI uses
-- [ ] Fix `README.md`: add `tpt-vertex-printer-link` to the workspace list;
+- [x] Add a root `justfile` (`check`, `fmt`, `test`, `dev-frontend`,
+       `dev-desktop` targets)
+- [x] Add `.editorconfig` and `CODEOWNERS`
+- [x] Add `rust-toolchain.toml` pinning the Rust version CI uses
+- [x] Fix `README.md`: add `tpt-vertex-printer-link` to the workspace list;
       note Tauri's per-OS system deps in the Desktop build section
-- [ ] Fix stale `tpt-vertex-slicer/README.md` claim that slicing isn't
+- [x] Fix stale `tpt-vertex-slicer/README.md` claim that slicing isn't
       implemented
-- [ ] Move `todo 1260720.md` and `spec.txt` into `docs/history/`
-- [ ] Flip `frontend/eslint.config.js`'s `@typescript-eslint/no-explicit-any`
-      from `off` to `warn` to match documented policy
+- [x] Move `todo 1260720.md` and `spec.txt` into `docs/history/`
+- [x] Flip `frontend/eslint.config.js`'s `@typescript-eslint/no-explicit-any`
+       from `off` to `warn` to match documented policy
 
 ### Printer auto-setup wizard
 
 - [ ] Build a guided "Find my printer" wizard (`PrinterSetupWizard.tsx`)
-      using the existing `discover_printers` Tauri command / mDNS backend;
-      hook into `PrinterPanel.tsx` alongside manual entry
+       using the existing `discover_printers` Tauri command / mDNS backend;
+       hook into `PrinterPanel.tsx` alongside manual entry
+       — **deferred (Phase 13 fast-follow; `discover_printers` + `PrinterPanel` already exist)**
 
 ### Real CSG/boolean engine (ADR-0013)
 
-- [ ] Write ADR-0013 (BSP-tree triangle-mesh boolean approach + known
-      limits); update ADR-0004's status
-- [ ] Implement `tpt-vertex-kernel/src/geometry/csg_bsp.rs` (BSP tree
-      build/clip/invert)
-- [ ] Rewire `union`/`subtract`/`intersect` in
-      `tpt-vertex-kernel/src/geometry/features.rs` onto the real BSP boolean
-- [ ] Implement edge classification (`tpt-vertex-kernel/src/geometry/edges.rs`)
-      and real `fillet`/`chamfer` for planar-faced solids
-- [ ] Extend `tpt-vertex-kernel/tests/integration.rs` with
-      volume/watertightness tests for boolean/fillet/chamfer cases
-- [ ] Update `todo.md` Phase 1 boolean/fillet lines once landed
+- [x] Write ADR-0013 (BSP-tree triangle-mesh boolean approach + known
+       limits); update ADR-0004's status
+- [x] Implement `tpt-vertex-kernel/src/geometry/csg_bsp.rs` (BSP tree
+       build/clip/invert)
+- [x] Rewire `union`/`subtract`/`intersect` in
+       `tpt-vertex-kernel/src/geometry/features.rs` onto the real BSP boolean
+- [x] Implement edge classification (`tpt-vertex-kernel/src/geometry/edges.rs`)
+       and real `fillet`/`chamfer` for planar-faced solids
+- [x] Extend `tpt-vertex-kernel/tests/integration.rs` with
+       volume/watertightness tests for boolean/fillet/chamfer cases
+- [x] Update `todo.md` Phase 1 boolean/fillet lines once landed
 
 ### Kernel↔frontend wiring (WASM), sketch integration, real slicing
 
@@ -362,9 +363,9 @@ self-diagnosed tooling/security gaps this also closes.
 
 ### Transparency panel
 
-- [ ] Add a data-driven "what's real vs. placeholder" capability-status
-      manifest (`frontend/src/state/capabilityStatus.ts`) and surface it as
-      feature-tree badges + a status panel
+- [x] Add a data-driven "what's real vs. placeholder" capability-status
+       manifest (`frontend/src/state/capabilityStatus.ts`) and surface it as
+       feature-tree badges + a status panel
 
 ### Real-time collaboration, end-to-end
 
@@ -379,5 +380,26 @@ self-diagnosed tooling/security gaps this also closes.
 
 ### Ongoing
 
-- [ ] Keep `todo.md` and ADRs (`0004`, new `0013`) updated as each item above
-      lands so the checklist stops overclaiming
+- [x] Keep `todo.md` and ADRs (`0004`, new `0013`) updated as each item above
+       lands so the checklist stops overclaiming
+
+### Notes on remaining Phase 13 items
+
+The following are intentionally **not** automatable in this pass and remain open:
+
+- **Manual / external blockers** (require a repo owner or hardware): final
+  branding confirmation & logo review; reserving crate/npm names on the
+  registries; executing the public launch; manual end-to-end printer
+  verification against OctoPrint's Virtual Printer / a real Moonraker instance /
+  an ESP32 dev board running ESP3D; generating + securely storing the Tauri
+  updater signing keypair (flagged in the Security fixes section above).
+- **Deferred fast-follows** (large app-wiring work; the underlying libraries are
+  already real): kernel↔frontend WASM wiring (expand `wasm.rs`, add a
+  `wasm-pack` build step, replace the hardcoded box in `buildMesh.ts`, wire
+  `SketchEditor` entities into the feature tree, add an "Add feature" UI for
+  extrude/revolve/boolean/fillet/chamfer, wire `slicer.ts` to the real
+  `evaluate_model`/`slice_model` Tauri commands, add export UI for
+  STEP/STL/OBJ/glTF/BOM/drawing, and wire `renderer::material_color` to the
+  45-preset `materials.rs` library); the guided "Find my printer" wizard; and
+  full real-time collaboration end-to-end (WebSocket sync server binary, a
+  `collab` wasm feature, and the frontend collab client + multi-cursor overlay).

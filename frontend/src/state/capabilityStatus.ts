@@ -82,18 +82,18 @@ export const CAPABILITIES: Capability[] = [
   {
     id: "boolean-ops",
     label: "Boolean operations (union / subtract / intersect)",
-    status: "placeholder",
+    status: "real",
     phase: 1,
     notes:
-      "v1 placeholder CSG (ADR-0004): results approximate the operation. A real BSP-tree boolean engine is planned (ADR-0013).",
+      "Real BSP-tree triangle-mesh CSG engine (ADR-0013) over the kernel's faceted Solid; union/subtract/intersect are wired through feature.rs into csg_bsp and unit tested for volume/watertightness.",
   },
   {
     id: "fillet-chamfer",
     label: "Fillet / chamfer",
-    status: "placeholder",
+    status: "real",
     phase: 1,
     notes:
-      "v1 placeholders — exact edge rounding/bevelling needs the planned edge-classification pass, so geometry is only indicative.",
+      "Real edge-classification + subtractive rolling-ball fillet and bevel tools (edges.rs) operate on convex manifold edges of planar-faced solids; faceted approximation of the exact blend (documented limits).",
   },
   {
     id: "rendering",

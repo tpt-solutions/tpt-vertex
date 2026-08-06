@@ -10,26 +10,36 @@
 //!
 //! Fillet and chamfer are implemented as real geometry operations on top of the
 //! BSP boolean engine (see [`crate::geometry::csg_bsp`], ADR-0013): each
-//! selected edge contributes one or more cutting planes, and the solid is
-//! intersected with the corresponding half-spaces.
+//! selected edge gets a *cutting tool* — the prism between the edge and its
+//! blend surface — and the tools are subtracted from the solid. Tools with
+//! disjoint bounds are merged so one boolean can round many edges at once.
 //!
 //! # Known limits
 //!
-//! - **Convex edges only.** A plane cut can only *remove* material, so concave
-//!   edges (which need material *added* by the rolling ball) are skipped, as
-//!   are smooth, boundary and non-manifold edges.
-//! - **Faceted fillets.** The rolling-ball fillet surface is approximated by a
-//!   fan of planes tangent to the fillet cylinder. It is a circumscribed
-//!   approximation (very slightly proud of the true arc), refined by raising
-//!   the segment count.
-//! - **Radius/distance must be small relative to the feature.** A plane cut is
-//!   global: an over-large radius will slice through unrelated geometry. Cuts
-//!   that would empty the solid are skipped rather than applied.
+//! - **Convex edges only.** A subtractive tool can only *remove* material, so
+//!   concave edges (which need material *added* by the rolling ball) are
+//!   skipped, as are smooth, boundary and non-manifold edges.
+//! - **Faceted fillets.** The rolling-ball surface is approximated by
+//!   [`DEFAULT_FILLET_SEGMENTS`] facets whose corners lie on the exact fillet
+//!   cylinder, so the blend is inscribed in (never proud of) the true surface.
+//!   Raise the segment count via [`fillet_edges_segmented`] to converge.
+//! - **Corners are overlaps, not blends.** Each tool overshoots its edge
+//!   slightly so the corner is fully reached; where several rounded edges meet,
+//!   their tools simply overlap. That is close to, but not exactly, the
+//!   spherical corner patch an exact kernel would build.
+//! - **Radius/distance must be small relative to the feature.** Nothing checks
+//!   that the blend still fits on the adjacent faces; an over-large radius will
+//!   cut past them. Cuts that would empty the solid are skipped rather than
+//!   applied.
+//! - **Cost is one boolean per batch of disjoint edges.** Rounding *every* edge
+//!   of a dense mesh is expensive and is bounded by
+//!   [`ROUNDING_EDGE_BUDGET`]/[`ROUNDING_TRIANGLE_BUDGET`]; past the budget the
+//!   remaining edges are left sharp.
 //! - **Planar-faced solids.** Classification assumes planar faces; on a
 //!   tessellated cylinder each facet boundary is a genuine (small) convex edge
 //!   unless it falls inside the smoothness tolerance.
 
-use crate::geometry::csg_bsp::cut_half_space;
+use crate::geometry::csg_bsp::{bsp_subtract_raw, heal_t_junctions, PLANE_EPSILON};
 use crate::geometry::solid::Solid;
 use crate::math::Vec3;
 use std::collections::HashMap;
@@ -320,10 +330,97 @@ fn in_face_direction(n: Vec3, dir: Vec3, centroid: Vec3, edge_point: Vec3) -> Op
     }
 }
 
-/// Apply one half-space cut, keeping the previous solid if the cut would
+/// Outward inflation of a cutting tool past the adjacent faces, as a fraction
+/// of the radius/setback. Keeps the tool's flat sides from being *exactly*
+/// coplanar with the solid's faces, which is the BSP engine's fragile case.
+const TOOL_INFLATE: f64 = 0.25;
+
+/// Axial overshoot of a cutting tool past each end of the edge, as a fraction
+/// of the radius/setback. Guarantees the corner is reached (and keeps the end
+/// caps off the faces met there); adjacent tools simply overlap at corners.
+const TOOL_OVERSHOOT: f64 = 0.5;
+
+/// Build the cutting tool for one edge: the material between the edge and the
+/// blend surface, swept along the edge.
+///
+/// `profile` is the blend cross-section, ordered from a point on face 0 to a
+/// point on face 1 (two points for a chamfer, an arc polyline for a fillet).
+/// The tool is that cross-section closed back through the edge corner,
+/// inflated outward by `size * TOOL_INFLATE` so none of its faces are coplanar
+/// with the solid, and extruded along the edge with an overshoot at both ends.
+fn edge_tool(frame: &EdgeFrame, length: f64, profile: &[Vec3], size: f64) -> Option<Solid> {
+    if profile.len() < 2 || !length.is_finite() || length <= 0.0 {
+        return None;
+    }
+    let delta = size * TOOL_INFLATE;
+    let ext = size * TOOL_OVERSHOOT;
+    let first = *profile.first()?;
+    let last = *profile.last()?;
+
+    // Cross-section loop: outward collar (on face 0, over the corner, on
+    // face 1) then back along the blend profile.
+    let mut cross: Vec<Vec3> = Vec::with_capacity(profile.len() + 3);
+    cross.push(first + frame.n0 * delta);
+    cross.push(frame.origin + (frame.n0 + frame.n1) * delta); // the apex
+    cross.push(last + frame.n1 * delta);
+    cross.extend(profile.iter().rev().copied());
+    if cross
+        .iter()
+        .any(|p| !p.x.is_finite() || !p.y.is_finite() || !p.z.is_finite())
+    {
+        return None;
+    }
+
+    const APEX: usize = 1;
+    let n = cross.len();
+    let mut tool = Solid::new();
+    let base: Vec<u32> = cross
+        .iter()
+        .map(|p| tool.add_vertex(*p - frame.dir * ext))
+        .collect();
+    let top: Vec<u32> = cross
+        .iter()
+        .map(|p| tool.add_vertex(*p + frame.dir * (length + ext)))
+        .collect();
+
+    for i in 0..n {
+        let j = (i + 1) % n;
+        tool.faces
+            .push(crate::geometry::solid::Face::new(base[i], base[j], top[j]));
+        tool.faces
+            .push(crate::geometry::solid::Face::new(base[i], top[j], top[i]));
+    }
+    // The cross-section is star-shaped about the apex, so both caps fan from it.
+    for i in 0..n {
+        let j = (i + 1) % n;
+        if i == APEX || j == APEX {
+            continue;
+        }
+        tool.faces.push(crate::geometry::solid::Face::new(
+            base[APEX], base[j], base[i],
+        ));
+        tool.faces
+            .push(crate::geometry::solid::Face::new(top[APEX], top[i], top[j]));
+    }
+
+    let vol = tool.volume();
+    if !vol.is_finite() || vol.abs() < 1e-15 {
+        return None;
+    }
+    if vol < 0.0 {
+        tool.reverse_winding();
+    }
+    Some(tool)
+}
+
+/// Subtract one cutting tool, keeping the previous solid if the cut would
 /// destroy it (over-large radius, degenerate result, numeric failure).
-fn guarded_cut(current: &Solid, point: Vec3, normal: Vec3) -> Solid {
-    let candidate = cut_half_space(current, point, normal);
+///
+/// Uses the *raw* (unhealed) boolean: healing between cuts multiplies the
+/// triangle count without improving the final mesh, so rounding heals once at
+/// the end instead.
+fn guarded_subtract(current: &Solid, tool: &Solid) -> Solid {
+    let candidate = bsp_subtract_raw(current, tool);
     let v = candidate.volume();
     if candidate.faces.is_empty() || !v.is_finite() || v <= 0.0 {
         current.clone()
@@ -332,11 +429,69 @@ fn guarded_cut(current: &Solid, point: Vec3, normal: Vec3) -> Solid {
     }
 }
 
-/// Chamfer (45°-style bevel) the selected edges of a planar-faced solid.
+/// Maximum number of edges rounded by a single [`fillet_edges`] /
+/// [`chamfer_edges`] call. Each edge costs a boolean, so an unbounded selection
+/// on a dense mesh would run effectively forever; past the budget the remaining
+/// edges are left sharp rather than hanging the caller.
+pub const ROUNDING_EDGE_BUDGET: usize = 1024;
+
+/// Rounding stops once the working mesh passes this triangle count.
+pub const ROUNDING_TRIANGLE_BUDGET: usize = 200_000;
+
+fn aabb_disjoint(a: (Vec3, Vec3), b: (Vec3, Vec3)) -> bool {
+    a.1.x <= b.0.x
+        || b.1.x <= a.0.x
+        || a.1.y <= b.0.y
+        || b.1.y <= a.0.y
+        || a.1.z <= b.0.z
+        || b.1.z <= a.0.z
+}
+
+/// Merge cutting tools with pairwise-disjoint bounds into single multi-part
+/// cutters, so one boolean can round many edges at once.
+///
+/// Concatenating *overlapping* closed meshes would produce a self-intersecting
+/// cutter (undefined for the BSP engine), so tools that touch are kept in
+/// separate batches; only bounding-box-disjoint tools are merged.
+fn batch_tools(tools: Vec<Solid>) -> Vec<Solid> {
+    let mut batches: Vec<(Vec<(Vec3, Vec3)>, Solid)> = Vec::new();
+    'next: for tool in tools {
+        let Some(tb) = tool.bounds() else {
+            continue;
+        };
+        for (boxes, batch) in batches.iter_mut() {
+            if boxes.iter().all(|b| aabb_disjoint(*b, tb)) {
+                boxes.push(tb);
+                batch.extend(&tool);
+                continue 'next;
+            }
+        }
+        batches.push((vec![tb], tool));
+    }
+    batches.into_iter().map(|(_, s)| s).collect()
+}
+
+/// Subtract every cutting tool from `solid` and heal the result once.
+fn apply_tools(solid: &Solid, tools: Vec<Solid>) -> Solid {
+    if tools.is_empty() {
+        return solid.clone();
+    }
+    let mut out = solid.clone();
+    for batch in batch_tools(tools) {
+        if out.triangle_count() > ROUNDING_TRIANGLE_BUDGET {
+            break;
+        }
+        out = guarded_subtract(&out, &batch);
+    }
+    heal_t_junctions(&out, PLANE_EPSILON)
+}
+
+/// Chamfer (bevel) the selected edges of a planar-faced solid.
 ///
 /// `distance` is the setback measured along each adjacent face from the edge;
 /// for a 90° dihedral this is the classic symmetric 45° chamfer, and for other
-/// dihedrals it is the equal-setback bevel through both offset lines.
+/// dihedrals it is the equal-setback bevel through both offset lines. Each
+/// selected edge is realised as one boolean subtraction of a local prism tool.
 ///
 /// `edge_filter` holds indices into [`classify_edges`]; an empty slice selects
 /// every roundable (convex, manifold) edge. Non-convex edges in the filter are
@@ -347,44 +502,42 @@ pub fn chamfer_edges(solid: &Solid, distance: f64, edge_filter: &[usize]) -> Sol
     }
     let edges = classify_edges(solid);
     let picked = selection(&edges, edge_filter);
-    let mut out = solid.clone();
+    let mut tools = Vec::new();
     for i in picked {
+        if tools.len() >= ROUNDING_EDGE_BUDGET {
+            break;
+        }
         let Some(frame) = edge_frame(solid, &edges[i]) else {
             continue;
         };
-        // The bevel plane passes through both setback points and contains the
-        // edge direction.
-        let a = frame.origin + frame.t0 * distance;
-        let b = frame.origin + frame.t1 * distance;
-        let m = frame.dir.cross(b - a);
-        if m.length() < 1e-12 {
-            continue;
+        let profile = [
+            frame.origin + frame.t0 * distance,
+            frame.origin + frame.t1 * distance,
+        ];
+        if let Some(tool) = edge_tool(&frame, edges[i].length, &profile, distance) {
+            tools.push(tool);
         }
-        let mut m = m.normalize();
-        if m.dot(frame.n0 + frame.n1) < 0.0 {
-            m = -m;
-        }
-        out = guarded_cut(&out, a, m);
     }
-    out
+    apply_tools(solid, tools)
 }
 
 /// Fillet (round) the selected edges of a planar-faced solid, approximating the
-/// rolling-ball surface with [`DEFAULT_FILLET_SEGMENTS`] tangent planes.
+/// rolling-ball surface with [`DEFAULT_FILLET_SEGMENTS`] facets.
 ///
 /// See [`fillet_edges_segmented`] to control the facet count.
 pub fn fillet_edges(solid: &Solid, radius: f64, edge_filter: &[usize]) -> Solid {
     fillet_edges_segmented(solid, radius, edge_filter, DEFAULT_FILLET_SEGMENTS)
 }
 
-/// Fillet with an explicit number of tangent planes per edge.
+/// Fillet with an explicit number of facets per edge.
 ///
 /// For each selected convex edge the engine computes the axis of the inscribed
 /// rolling-ball cylinder — the line at distance `radius` from both adjacent
-/// face planes — and cuts the solid with `segments` planes tangent to that
-/// cylinder, spaced evenly across the dihedral arc. `segments == 1` degenerates
-/// to a tangent chamfer; the approximation is circumscribed, so it is always a
-/// little proud of the exact arc (error `radius * (1/cos(Δ/2) - 1)`).
+/// face planes — samples the tangent arc between the two faces into `segments`
+/// facets, and subtracts the prism between the edge and that arc. `segments ==
+/// 1` degenerates to a tangent chamfer. The arc samples lie *on* the exact
+/// cylinder, so the facetted blend is inscribed in (never proud of) the true
+/// rolling-ball surface; raise the segment count to converge on it.
 pub fn fillet_edges_segmented(
     solid: &Solid,
     radius: f64,
@@ -397,8 +550,11 @@ pub fn fillet_edges_segmented(
     let segments = segments.max(1);
     let edges = classify_edges(solid);
     let picked = selection(&edges, edge_filter);
-    let mut out = solid.clone();
+    let mut tools = Vec::new();
     for i in picked {
+        if tools.len() >= ROUNDING_EDGE_BUDGET {
+            break;
+        }
         let Some(frame) = edge_frame(solid, &edges[i]) else {
             continue;
         };
@@ -407,29 +563,34 @@ pub fn fillet_edges_segmented(
         if denom < 1e-9 {
             continue; // 180° fold: no inscribed cylinder
         }
-        // Axis point: distance `radius` inside both face planes.
+        // Axis of the rolling ball: distance `radius` inside both face planes.
         let center = frame.origin - (frame.n0 + frame.n1) * (radius / denom);
         let ang = cos.acos();
-        if ang < 1e-9 {
-            continue;
-        }
         let sin_ang = ang.sin();
-        if sin_ang.abs() < 1e-12 {
+        if ang < 1e-9 || sin_ang.abs() < 1e-12 {
             continue;
         }
-        for k in 0..segments {
-            let t = (k as f64 + 0.5) / segments as f64;
-            // Slerp the plane normal from n0 to n1 across the dihedral.
+        // Sample the tangent arc from the face-0 tangent point to the face-1 one.
+        let mut profile = Vec::with_capacity(segments + 1);
+        for k in 0..=segments {
+            let t = k as f64 / segments as f64;
             let m =
                 (frame.n0 * ((1.0 - t) * ang).sin() + frame.n1 * (t * ang).sin()) * (1.0 / sin_ang);
             let m = m.normalize();
             if m == Vec3::ZERO {
-                continue;
+                profile.clear();
+                break;
             }
-            out = guarded_cut(&out, center + m * radius, m);
+            profile.push(center + m * radius);
+        }
+        if profile.len() < 2 {
+            continue;
+        }
+        if let Some(tool) = edge_tool(&frame, edges[i].length, &profile, radius) {
+            tools.push(tool);
         }
     }
-    out
+    apply_tools(solid, tools)
 }
 
 #[cfg(test)]
@@ -543,5 +704,74 @@ mod tests {
         assert!(huge.volume().is_finite());
         // Out-of-range filter indices are ignored.
         assert_eq!(chamfer_edges(&c, 0.1, &[9999]), c);
+    }
+
+    /// Edges used by exactly one face.
+    fn open_edges(s: &Solid) -> usize {
+        use std::collections::HashMap;
+        let mut counts: HashMap<(u32, u32), u32> = HashMap::new();
+        for f in &s.faces {
+            let idx = f.indices();
+            for k in 0..3 {
+                let (a, b) = (idx[k], idx[(k + 1) % 3]);
+                *counts
+                    .entry(if a < b { (a, b) } else { (b, a) })
+                    .or_insert(0) += 1;
+            }
+        }
+        counts.values().filter(|c| **c == 1).count()
+    }
+
+    #[test]
+    fn rounded_solids_stay_closed_and_manifold() {
+        let c = cube();
+        for (label, s) in [
+            ("fillet", fillet_edges(&c, 0.1, &[])),
+            ("chamfer", chamfer_edges(&c, 0.1, &[])),
+            ("big fillet", fillet_edges(&c, 0.3, &[])),
+            ("deep chamfer", chamfer_edges(&c, 0.45, &[])),
+        ] {
+            assert_eq!(open_edges(&s), 0, "{label} left open edges");
+            assert!(s.volume() > 0.0 && s.volume() < 1.0, "{label} volume");
+        }
+    }
+
+    #[test]
+    fn fillet_converges_towards_the_exact_rolling_ball_volume() {
+        // Exact volume of a unit cube with radius-r rounds on its 12 edges,
+        // ignoring the corner blends: each edge loses a (1 - pi/4) r^2 prism
+        // over the (1 - 2r) length that is not shared with a corner.
+        let r: f64 = 0.1;
+        let edge_loss = 12.0 * (1.0 - std::f64::consts::FRAC_PI_4) * r * r * (1.0 - 2.0 * r);
+        let target = 1.0 - edge_loss;
+        let coarse = fillet_edges_segmented(&cube(), r, &[], 2).volume();
+        let fine = fillet_edges_segmented(&cube(), r, &[], 8).volume();
+        // Inscribed facets remove slightly too much; refining reduces the gap.
+        assert!(coarse < fine, "refining should keep more material");
+        assert!(
+            (fine - target).abs() < (coarse - target).abs(),
+            "fine {fine} should be closer to {target} than coarse {coarse}"
+        );
+        assert!((fine - target).abs() < 0.005, "fine fillet volume {fine}");
+    }
+
+    #[test]
+    fn tool_batching_matches_sequential_cuts() {
+        // Two far-apart cubes: their edge tools are disjoint and get merged
+        // into batches, which must give the same result as cutting one by one.
+        let mut two = cube();
+        two.extend(&box_solid(
+            Vec3::new(4.0, 0.0, 0.0),
+            Vec3::new(5.0, 1.0, 1.0),
+        ));
+        let out = chamfer_edges(&two, 0.1, &[]);
+        let single = chamfer_edges(&cube(), 0.1, &[]);
+        assert!(
+            (out.volume() - 2.0 * single.volume()).abs() < 1e-9,
+            "batched volume {} vs 2x {}",
+            out.volume(),
+            single.volume()
+        );
+        assert_eq!(open_edges(&out), 0);
     }
 }

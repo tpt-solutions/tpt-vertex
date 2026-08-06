@@ -93,6 +93,24 @@ export async function deletePrinter(id: string): Promise<PrinterTarget[]> {
   return invoke<PrinterTarget[]>("delete_printer", { id });
 }
 
+/** Store a printer's API key in the OS keychain (never persisted in plaintext JSON). */
+export async function setPrinterKey(printerId: string, apiKey: string): Promise<void> {
+  if (!isTauri()) throw new Error(NOT_TAURI);
+  return invoke<void>("set_printer_key", { printerId, apiKey });
+}
+
+/** Retrieve a printer's API key from the OS keychain (or null if none). */
+export async function getPrinterKey(printerId: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  return invoke<string | null>("get_printer_key", { printerId });
+}
+
+/** Delete a printer's API key from the OS keychain. */
+export async function deletePrinterKey(printerId: string): Promise<void> {
+  if (!isTauri()) return;
+  return invoke<void>("delete_printer_key", { printerId });
+}
+
 export async function testPrinter(target: PrinterTarget): Promise<ConnectionInfo> {
   if (!isTauri()) throw new Error(NOT_TAURI);
   return invoke<ConnectionInfo>("test_printer", { target });

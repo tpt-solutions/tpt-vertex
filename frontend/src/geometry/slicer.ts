@@ -1,4 +1,5 @@
 import type { FeatureNode } from "../state/types";
+import { isTauri, invoke } from "../printer/client";
 
 /**
  * Minimal browser-side FDM slicer preview for the current parametric model.
@@ -203,4 +204,53 @@ export function sliceModel(
     estimatedTimeS: timeS,
     size: [width, depth, height],
   };
+}
+
+/**
+ * Slice using the real `tpt-vertex-slicer` engine via the desktop
+ * `slice_model` Tauri command. Returns `null` in a plain browser build so the
+ * caller can fall back to the JS approximation in `sliceModel`.
+ */
+export async function sliceModelWithBackend(
+  features: FeatureNode[],
+  settings: SliceSettings,
+): Promise<SliceResult | null> {
+  if (!isTauri()) return null;
+  try {
+    const { width, depth, height } = modelBox(features);
+    const spec = { rect: [0, 0, width, depth], height };
+    const slice = {
+      layer_height: settings.layerHeight,
+      first_layer_height: settings.firstLayerHeight,
+      wall_count: settings.wallCount,
+      infill_density: settings.infillDensity,
+      material: settings.material,
+      nozzle_diameter: settings.nozzleDiameter,
+    };
+    const out = (await invoke("slice_model", { spec, slice })) as {
+      gcode: string;
+      layer_count: number;
+      estimated_filament_mm: number;
+      estimated_time_s: number;
+      layers: {
+        z: number;
+        perimeters: [number, number][][];
+        infill: [number, number, number, number][];
+      }[];
+    };
+    return {
+      layers: out.layers.map((l) => ({
+        z: l.z,
+        perimeters: l.perimeters,
+        infill: l.infill,
+      })),
+      gcode: out.gcode,
+      layerCount: out.layer_count,
+      estimatedFilamentMm: out.estimated_filament_mm,
+      estimatedTimeS: out.estimated_time_s,
+      size: [width, depth, height],
+    };
+  } catch {
+    return null;
+  }
 }

@@ -1,4 +1,5 @@
 import { useModelStore } from "../state/store";
+import type { FeatureType } from "../state/types";
 
 export function Toolbar({
   onToggleTheme,
@@ -8,6 +9,8 @@ export function Toolbar({
   onOpenSimulation,
   onOpenPrinters,
   onOpenCapabilities,
+  onOpenExport,
+  onAddFeature,
 }: {
   onToggleTheme: () => void;
   onOpenSketch: () => void;
@@ -16,6 +19,8 @@ export function Toolbar({
   onOpenSimulation: () => void;
   onOpenPrinters: () => void;
   onOpenCapabilities: () => void;
+  onOpenExport: () => void;
+  onAddFeature: (type: FeatureType) => void;
 }) {
   const undo = useModelStore((s) => s.undo);
   const redo = useModelStore((s) => s.redo);
@@ -30,6 +35,35 @@ export function Toolbar({
         <button onClick={redo} title="Redo (Ctrl+Shift+Z)">
           Redo
         </button>
+        <span className="tool-sep" />
+        <button onClick={() => onAddFeature("extrude")} title="Add an extruded box">
+          Add Box
+        </button>
+        <button onClick={() => onAddFeature("revolve")} title="Add a revolve">
+          Revolve
+        </button>
+        <button onClick={() => onAddFeature("fillet")} title="Fillet edges">
+          Fillet
+        </button>
+        <button onClick={() => onAddFeature("chamfer")} title="Chamfer edges">
+          Chamfer
+        </button>
+        <button onClick={() => onAddFeature("boolean")} title="Boolean union with a box">
+          Union
+        </button>
+        <button
+          onClick={() => onAddFeature("boolean-subtract")}
+          title="Boolean subtract a box"
+        >
+          Subtract
+        </button>
+        <button
+          onClick={() => onAddFeature("boolean-intersect")}
+          title="Boolean intersect with a box"
+        >
+          Intersect
+        </button>
+        <span className="tool-sep" />
         <button onClick={onOpenSketch} title="Open sketch editor">
           Sketch
         </button>
@@ -38,6 +72,9 @@ export function Toolbar({
         </button>
         <button onClick={onOpenSlicer} title="Slice for 3D printing">
           Slice
+        </button>
+        <button onClick={onOpenExport} title="Export CAD formats">
+          Export
         </button>
         <button onClick={onOpenPrinters} title="Manage printers &amp; send to print">
           Printers

@@ -9,6 +9,7 @@ use tpt_vertex_kernel::assembly::Assembly;
 use wgpu::util::DeviceExt;
 
 use crate::camera::Camera;
+use crate::materials::RenderMaterial;
 use crate::mesh::Mesh;
 use crate::scene::{MaterialId, Scene};
 
@@ -549,15 +550,18 @@ impl Renderer {
 }
 
 /// Map a material id to a base (albedo) color.
+///
+/// Pulls from the built-in 45-preset [`RenderMaterial`] library
+/// (`renderer::materials`) so the renderer's colour vocabulary matches the
+/// photorealistic preset catalogue rather than a hard-coded 4-colour palette.
 #[allow(dead_code)]
 fn material_color(id: MaterialId) -> [f32; 4] {
-    let palette: &[[f32; 4]] = &[
-        [0.75, 0.77, 0.80, 1.0], // default steel
-        [0.80, 0.55, 0.35, 1.0], // warm
-        [0.45, 0.65, 0.80, 1.0], // cool
-        [0.70, 0.70, 0.40, 1.0], // brass
-    ];
-    palette[(id as usize) % palette.len()]
+    let presets = RenderMaterial::presets();
+    if presets.is_empty() {
+        return [0.75, 0.77, 0.80, 1.0];
+    }
+    let c = presets[(id as usize) % presets.len()].albedo;
+    [c.r, c.g, c.b, c.a]
 }
 
 /// Errors surfaced by the renderer.

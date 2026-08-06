@@ -4,8 +4,10 @@
 //!
 //! Bridges the web frontend to `tpt-vertex-printer-link`. Saved printer
 //! connection configs (`PrinterTarget`s) are persisted in `printers.json` via
-//! `tauri-plugin-store`; live control (test/upload/start/status) builds a
-//! client on demand through [`make_client`].
+//! `tauri-plugin-store`; the API key is **never** written to that JSON file —
+//! it is stored in the OS keychain (keyed by `target.id`) and rehydrated on
+//! demand by the live-control commands. Legacy plaintext keys found in
+//! `printers.json` are migrated into the keychain on read.
 
 use std::sync::Arc;
 
@@ -33,10 +35,40 @@ fn store(app: &AppHandle) -> Result<Arc<Store<tauri::Wry>>, String> {
 }
 
 fn read_all(store: &Store<tauri::Wry>) -> Vec<PrinterTarget> {
-    store
+    let mut printers: Vec<PrinterTarget> = store
         .get(PRINTERS_KEY)
         .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    // Migrate any legacy plaintext `api_key` found in the JSON store into the
+    // OS keychain, stripping it from the persisted copy (never store secrets
+    // in plaintext JSON).
+    let mut migrated = false;
+    for p in &mut printers {
+        if let Some(key) = p.api_key.take() {
+            if !key.is_empty() {
+                let _ = Keychain::new().set_key(&p.id, &key);
+                migrated = true;
+            }
+        }
+    }
+    if migrated {
+        let _ = write_all(store, &printers);
+    }
+    printers
+}
+
+/// Rehydrate a target's `api_key` from the OS keychain when it is absent, so
+/// live-control commands (which persist targets without the secret) can still
+/// authenticate. Targets arriving from the frontend without a key look up the
+/// stored credential by `id`.
+fn rehydrate(mut target: PrinterTarget) -> PrinterTarget {
+    let missing = target.api_key.as_deref().map(|k| k.is_empty()).unwrap_or(true);
+    if missing {
+        if let Ok(Some(key)) = Keychain::new().get_key(&target.id) {
+            target.api_key = Some(key);
+        }
+    }
+    target
 }
 
 fn write_all(store: &Store<tauri::Wry>, printers: &[PrinterTarget]) -> Result<(), String> {
@@ -53,9 +85,21 @@ pub fn list_printers(app: AppHandle) -> Result<Vec<PrinterTarget>, String> {
 }
 
 /// Upsert a printer by id and return the updated list.
+///
+/// The API key (if any) is stored in the OS keychain keyed by `target.id` and
+/// is **never** persisted to `printers.json`; the saved target always has its
+/// `api_key` stripped.
 #[tauri::command]
 pub fn save_printer(app: AppHandle, target: PrinterTarget) -> Result<Vec<PrinterTarget>, String> {
     let store = store(&app)?;
+    let mut target = target;
+    if let Some(key) = target.api_key.take() {
+        if !key.is_empty() {
+            Keychain::new()
+                .set_key(&target.id, &key)
+                .map_err(|e| e.to_string())?;
+        }
+    }
     let mut printers = read_all(&store);
     if let Some(pos) = printers.iter().position(|p| p.id == target.id) {
         printers[pos] = target;
@@ -75,13 +119,15 @@ pub fn delete_printer(app: AppHandle, id: String) -> Result<Vec<PrinterTarget>, 
         .filter(|p| p.id != id)
         .collect();
     write_all(&store, &printers)?;
+    // Drop the API key from the OS keychain too.
+    let _ = Keychain::new().delete_key(&id);
     Ok(printers)
 }
 
 /// Probe a printer target and return its connection info.
 #[tauri::command]
 pub fn test_printer(target: PrinterTarget) -> Result<ConnectionInfo, String> {
-    let client = make_client(&target).map_err(|e| e.to_string())?;
+    let client = make_client(&rehydrate(target)).map_err(|e| e.to_string())?;
     client.test_connection().map_err(|e| e.to_string())
 }
 
@@ -94,7 +140,7 @@ pub fn send_to_printer(
     filename: String,
     gcode: String,
 ) -> Result<StatusSnapshot, String> {
-    let client = make_client(&target).map_err(|e| e.to_string())?;
+    let client = make_client(&rehydrate(target)).map_err(|e| e.to_string())?;
     let name = if filename.trim().is_empty() {
         "tpt-vertex.gcode".to_string()
     } else {
@@ -110,7 +156,7 @@ pub fn send_to_printer(
 /// Fetch the current status snapshot for a printer target.
 #[tauri::command]
 pub fn printer_status(target: PrinterTarget) -> Result<StatusSnapshot, String> {
-    let client = make_client(&target).map_err(|e| e.to_string())?;
+    let client = make_client(&rehydrate(target)).map_err(|e| e.to_string())?;
     client.status().map_err(|e| e.to_string())
 }
 
@@ -148,7 +194,7 @@ pub fn delete_printer_key(printer_id: String) -> Result<(), String> {
 #[tauri::command]
 pub fn stream_gcode(target: PrinterTarget, gcode: String) -> Result<usize, String> {
     use tpt_vertex_printer_link::stream::{GCodeStreamer, StreamConfig};
-    let client = make_client(&target).map_err(|e| e.to_string())?;
+    let client = make_client(&rehydrate(target)).map_err(|e| e.to_string())?;
     let streamer = GCodeStreamer::new(client.as_ref(), StreamConfig::default());
     streamer.stream_full(&gcode).map_err(|e| e.to_string())
 }
@@ -163,7 +209,7 @@ pub fn stream_gcode(target: PrinterTarget, gcode: String) -> Result<usize, Strin
 #[tauri::command]
 pub fn stream_gcode_layer(target: PrinterTarget, layer_gcode: String) -> Result<(), String> {
     use tpt_vertex_printer_link::stream::{GCodeStreamer, StreamConfig};
-    let client = make_client(&target).map_err(|e| e.to_string())?;
+    let client = make_client(&rehydrate(target)).map_err(|e| e.to_string())?;
     let streamer = GCodeStreamer::new(client.as_ref(), StreamConfig::default());
     streamer.send_layer(&layer_gcode).map_err(|e| e.to_string())
 }
@@ -171,21 +217,21 @@ pub fn stream_gcode_layer(target: PrinterTarget, layer_gcode: String) -> Result<
 /// Cancel the active print on a printer.
 #[tauri::command]
 pub fn cancel_print(target: PrinterTarget) -> Result<(), String> {
-    let client = make_client(&target).map_err(|e| e.to_string())?;
+    let client = make_client(&rehydrate(target)).map_err(|e| e.to_string())?;
     client.cancel().map_err(|e| e.to_string())
 }
 
 /// Pause the active print on a printer.
 #[tauri::command]
 pub fn pause_print(target: PrinterTarget) -> Result<(), String> {
-    let client = make_client(&target).map_err(|e| e.to_string())?;
+    let client = make_client(&rehydrate(target)).map_err(|e| e.to_string())?;
     client.pause().map_err(|e| e.to_string())
 }
 
 /// Resume a paused print.
 #[tauri::command]
 pub fn resume_print(target: PrinterTarget) -> Result<(), String> {
-    let client = make_client(&target).map_err(|e| e.to_string())?;
+    let client = make_client(&rehydrate(target)).map_err(|e| e.to_string())?;
     client.resume().map_err(|e| e.to_string())
 }
 

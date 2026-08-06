@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import type { FeatureNode, ModelState, SelectionState } from "./types";
+import { useSketchStore } from "./sketchStore";
 
 interface StoreState extends ModelState, SelectionState {
   addFeature: (feature: FeatureNode) => void;
+  commitSketch: () => void;
   setSelected: (id: string | null) => void;
   setHovered: (id: string | null) => void;
   updateParam: (id: string, key: string, value: number | string) => void;
@@ -45,6 +47,43 @@ export const useModelStore = create<StoreState>((set, get) => {
       past.push(snapshot());
       future.length = 0;
       set((s) => ({ features: [...s.features, feature] }));
+    },
+
+    commitSketch: () => {
+      const entities = useSketchStore.getState().entities;
+      if (entities.length === 0) return;
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const e of entities) {
+        for (const p of e.points) {
+          minX = Math.min(minX, p.x);
+          minY = Math.min(minY, p.y);
+          maxX = Math.max(maxX, p.x);
+          maxY = Math.max(maxY, p.y);
+        }
+      }
+      if (!isFinite(minX)) return;
+      past.push(snapshot());
+      future.length = 0;
+      const sketchId = `sk${Date.now()}`;
+      const bodyId = `f${Date.now()}`;
+      const sketch: FeatureNode = {
+        id: sketchId,
+        type: "sketch",
+        label: "Sketch",
+        params: { x0: minX, y0: minY, x1: maxX, y1: maxY },
+      };
+      const body: FeatureNode = {
+        id: bodyId,
+        type: "extrude",
+        label: "Body from sketch",
+        params: { height: 30, sketch: sketchId },
+      };
+      set((s) => ({ features: [...s.features, sketch, body] }));
+      useSketchStore.getState().clear();
+      useSketchStore.getState().closeEditor();
     },
 
     setSelected: (id) => set({ selectedFeatureId: id }),

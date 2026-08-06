@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { useSketchStore, type SketchPoint } from "../state/sketchStore";
+import { useModelStore } from "../state/store";
 
 function toLocal(el: HTMLCanvasElement, e: React.PointerEvent<HTMLCanvasElement>): SketchPoint {
   const rect = el.getBoundingClientRect();
@@ -18,6 +19,7 @@ export function SketchEditor() {
   const commitDraft = useSketchStore((s) => s.commitDraft);
   const closeEditor = useSketchStore((s) => s.closeEditor);
   const clear = useSketchStore((s) => s.clear);
+  const commitSketch = useModelStore((s) => s.commitSketch);
 
   if (!open) return null;
 
@@ -35,6 +37,14 @@ export function SketchEditor() {
           Circle
         </button>
         <button onClick={clear}>Clear</button>
+        <button
+          className="primary"
+          onClick={commitSketch}
+          disabled={entities.length === 0}
+          title="Create an extruded feature from the sketched geometry"
+        >
+          Create Feature
+        </button>
         <button className="close" onClick={closeEditor}>
           Done
         </button>

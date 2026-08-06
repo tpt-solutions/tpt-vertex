@@ -3,11 +3,13 @@
 //! SPDX-License-Identifier: MIT OR Apache-2.0
 //!
 //! A minimal, storage-backed account system: sign up, authenticate, and issue
-//! opaque session tokens. Password hashing here is a lightweight salted digest
-//! placeholder — production should use Argon2/bcrypt. The design keeps the
-//! hashing behind [`hash_password`]/[`verify_password`] so the algorithm can be
-//! swapped without touching call sites.
+//! opaque session tokens. Password hashing uses Argon2id (via the `argon2`
+//! crate) with a per-user salt. The hashing is kept behind
+//! [`hash_password`]/[`verify_password`] so the algorithm and parameters can be
+//! tuned without touching call sites.
 
+use argon2::Argon2;
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 
 use crate::id::{SessionId, UserId};
@@ -52,25 +54,57 @@ impl std::fmt::Display for AuthError {
 
 impl std::error::Error for AuthError {}
 
-/// Hash a password with a per-user salt (placeholder digest; swap for Argon2).
+/// Hash a password with a per-user salt using Argon2id.
+///
+/// The returned string is `"{salt}${hash}"`, where `salt` is the caller-provided
+/// salt echoed back (so it can be re-derived at verify time) and `hash` is the
+/// base64-encoded 32-byte Argon2id digest. The salt is deterministically mapped
+/// to a valid Argon2 salt so callers may pass any stable, non-secret string.
 pub fn hash_password(password: &str, salt: &str) -> String {
-    // FNV-1a over salt+password, hex-encoded. NOT cryptographically strong —
-    // isolated here so it can be replaced without changing callers.
-    let mut hash: u64 = 0xcbf29ce484222325;
-    for b in salt.bytes().chain(password.bytes()) {
-        hash ^= b as u64;
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    format!("{salt}${hash:016x}")
+    let argon2 = Argon2::default(); // Argon2id with default parameters
+    let salt_b64 = derive_salt(salt);
+    let mut out = [0u8; 32];
+    argon2
+        .hash_password_into(password.as_bytes(), salt_b64.as_bytes(), &mut out)
+        .expect("argon2id hashing");
+    let hash_b64 = base64::engine::general_purpose::STANDARD.encode(out);
+    format!("{salt}${hash_b64}")
 }
 
-/// Verify a plaintext password against a stored hash.
+/// Verify a plaintext password against a stored `"{salt}${hash}"` string.
 pub fn verify_password(password: &str, stored: &str) -> bool {
-    if let Some((salt, _)) = stored.split_once('$') {
-        hash_password(password, salt) == stored
-    } else {
-        false
+    let Some((salt, hash_b64)) = stored.split_once('$') else {
+        return false;
+    };
+    let argon2 = Argon2::default();
+    let salt_b64 = derive_salt(salt);
+    let mut out = [0u8; 32];
+    if argon2
+        .hash_password_into(password.as_bytes(), salt_b64.as_bytes(), &mut out)
+        .is_err()
+    {
+        return false;
     }
+    let computed = base64::engine::general_purpose::STANDARD.encode(out);
+    computed == hash_b64
+}
+
+/// Deterministically map an arbitrary caller salt string to a valid,
+/// base64-encoded Argon2 salt. The raw salt is always 16 bytes (cyclically
+/// derived from the caller's salt), so `hash_password_into` always receives a
+/// base64 string of sufficient length (Argon2 requires >= 8 raw bytes).
+fn derive_salt(salt: &str) -> String {
+    let input = if salt.is_empty() {
+        "tpt-vertex-default-salt"
+    } else {
+        salt
+    };
+    let raw = input.as_bytes();
+    let mut salt_bytes = [0u8; 16];
+    for (i, b) in salt_bytes.iter_mut().enumerate() {
+        *b = raw[i % raw.len().max(1)];
+    }
+    base64::engine::general_purpose::STANDARD.encode(salt_bytes)
 }
 
 /// Minimum acceptable password policy.

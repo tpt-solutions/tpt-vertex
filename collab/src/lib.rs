@@ -16,12 +16,24 @@
 //!
 //! The document converges to a feature tree, so a room's [`crdt::CrdtDoc`] can be
 //! snapshotted at any time (see [`snapshot`]) to feed the versioning crate.
+//!
+//! Two transport adapters ship with the crate, both speaking serde's default
+//! JSON encoding of [`protocol::ClientMessage`]/[`protocol::ServerMessage`]:
+//!
+//! - `src/bin/sync_server.rs` (feature `server`, on by default): a native
+//!   WebSocket server that drives [`server::SyncHub`] over `tokio` +
+//!   `tokio-tungstenite`.
+//! - [`wasm`] (feature `wasm`): browser bindings for the client half, mirroring
+//!   the `tpt-vertex-kernel`/`tpt-vertex-simulation` wasm pattern.
 
 pub mod clock;
 pub mod crdt;
 pub mod presence;
 pub mod protocol;
 pub mod server;
+
+#[cfg(feature = "wasm")]
+pub mod wasm;
 
 pub use clock::{HybridClock, ReplicaId};
 pub use crdt::{CrdtDoc, FeatureKey, FeatureState, LocalReplica, Op, ParamValue, Register};

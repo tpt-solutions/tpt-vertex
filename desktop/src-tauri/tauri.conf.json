@@ -22,7 +22,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://releases.tpt-vertex.dev http://localhost:* https://localhost:* ws: wss:; media-src 'self' data:; frame-src 'none'; object-src 'none'"
     }
   },
   "bundle": {

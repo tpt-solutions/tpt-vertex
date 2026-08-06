@@ -23,7 +23,9 @@
 //!    winding and swapping front/back). Union, difference and intersection are
 //!    all expressed as sequences of those three primitives.
 //! 4. The surviving polygons are fan-triangulated and welded back into a
-//!    [`Solid`] so the rest of the kernel keeps seeing plain triangles.
+//!    [`Solid`] so the rest of the kernel keeps seeing plain triangles, then
+//!    passed through [`heal_t_junctions`] so the result is combinatorially — not
+//!    just geometrically — closed.
 //!
 //! # Implementation notes
 //!
@@ -32,6 +34,9 @@
 //! textbook recursive formulation blows the native stack on large or
 //! adversarially-ordered meshes; an arena keeps the recursion depth off the
 //! call stack entirely.
+//!
+//! `bsp_*_raw` variants skip the healing pass; use them when chaining many
+//! booleans (as the fillet/chamfer tools do) and heal once at the end.
 //!
 //! # Known limits (see ADR-0013)
 //!
@@ -43,7 +48,8 @@
 //!   coplanar-back split rule, which is correct for the usual cases but can
 //!   leave coincident faces on the boundary between the operands.
 //! - Near-degenerate (sliver) triangles are dropped on output rather than
-//!   repaired.
+//!   repaired, and there is no coplanar-face merge pass, so repeated booleans
+//!   accumulate triangles.
 
 use crate::geometry::solid::{Face, Solid};
 use crate::math::Vec3;
@@ -577,8 +583,8 @@ fn is_finite(v: Vec3) -> bool {
     v.x.is_finite() && v.y.is_finite() && v.z.is_finite()
 }
 
-/// Maximum number of healing passes (each pass can split every open edge once).
-const HEAL_PASSES: usize = 8;
+/// Maximum number of healing passes (each pass can split every face once).
+const HEAL_PASSES: usize = 32;
 /// Growth cap for [`heal_t_junctions`], as a multiple of the input face count.
 const HEAL_MAX_GROWTH: usize = 8;
 
@@ -744,7 +750,15 @@ fn bounds_separated(a: &Solid, b: &Solid) -> bool {
 ///
 /// Disjoint operands take a fast path (plain concatenation), which is both
 /// faster and lossless — the BSP path would needlessly re-split every face.
+/// The result is passed through [`heal_t_junctions`]; use
+/// [`bsp_union_raw`](self::bsp_union_raw) when chaining many booleans and
+/// healing only at the end.
 pub fn bsp_union(a: &Solid, b: &Solid) -> Solid {
+    heal_t_junctions(&bsp_union_raw(a, b), PLANE_EPSILON)
+}
+
+/// [`bsp_union`] without the T-junction healing pass.
+pub fn bsp_union_raw(a: &Solid, b: &Solid) -> Solid {
     if a.faces.is_empty() {
         return b.clone();
     }
@@ -764,11 +778,16 @@ pub fn bsp_union(a: &Solid, b: &Solid) -> Solid {
     tb.clip_to(&ta);
     tb.invert();
     ta.build(tb.all_polygons());
-    heal_t_junctions(&ta.to_solid(), PLANE_EPSILON)
+    ta.to_solid()
 }
 
-/// Boolean difference `A − B` over triangle meshes.
+/// Boolean difference `A − B` over triangle meshes (healed; see [`bsp_union`]).
 pub fn bsp_subtract(a: &Solid, b: &Solid) -> Solid {
+    heal_t_junctions(&bsp_subtract_raw(a, b), PLANE_EPSILON)
+}
+
+/// [`bsp_subtract`] without the T-junction healing pass.
+pub fn bsp_subtract_raw(a: &Solid, b: &Solid) -> Solid {
     if a.faces.is_empty() {
         return Solid::new();
     }
@@ -785,11 +804,17 @@ pub fn bsp_subtract(a: &Solid, b: &Solid) -> Solid {
     tb.invert();
     ta.build(tb.all_polygons());
     ta.invert();
-    heal_t_junctions(&ta.to_solid(), PLANE_EPSILON)
+    ta.to_solid()
 }
 
-/// Boolean intersection `A ∩ B` over triangle meshes.
+/// Boolean intersection `A ∩ B` over triangle meshes (healed; see
+/// [`bsp_union`]).
 pub fn bsp_intersect(a: &Solid, b: &Solid) -> Solid {
+    heal_t_junctions(&bsp_intersect_raw(a, b), PLANE_EPSILON)
+}
+
+/// [`bsp_intersect`] without the T-junction healing pass.
+pub fn bsp_intersect_raw(a: &Solid, b: &Solid) -> Solid {
     if a.faces.is_empty() || b.faces.is_empty() || bounds_separated(a, b) {
         return Solid::new();
     }
@@ -802,7 +827,7 @@ pub fn bsp_intersect(a: &Solid, b: &Solid) -> Solid {
     tb.clip_to(&ta);
     ta.build(tb.all_polygons());
     ta.invert();
-    heal_t_junctions(&ta.to_solid(), PLANE_EPSILON)
+    ta.to_solid()
 }
 
 /// An axis-aligned box solid with outward-facing triangles.
@@ -1063,5 +1088,47 @@ mod tests {
         ] {
             assert!(s.vertices.iter().all(|v| is_finite(*v)));
         }
+    }
+
+    /// Count edges used by exactly one face (T-junctions and real holes).
+    fn open_edge_count(s: &Solid) -> usize {
+        let mut counts: HashMap<(u32, u32), u32> = HashMap::new();
+        for f in &s.faces {
+            let idx = f.indices();
+            for k in 0..3 {
+                *counts
+                    .entry(edge_key(idx[k], idx[(k + 1) % 3]))
+                    .or_insert(0) += 1;
+            }
+        }
+        counts.values().filter(|c| **c == 1).count()
+    }
+
+    #[test]
+    fn healing_closes_t_junctions_from_a_pocket_cut() {
+        // A tool cutting through the middle of a face leaves T-junctions where
+        // the pocket rim meets the coarse triangulation of that face.
+        let block = box_solid(Vec3::ZERO, Vec3::new(1.0, 1.0, 1.0));
+        let tool = box_solid(Vec3::new(0.25, 0.25, -0.5), Vec3::new(0.75, 0.75, 0.5));
+        let raw = bsp_subtract_raw(&block, &tool);
+        assert!(
+            open_edge_count(&raw) > 0,
+            "expected the raw difference to have T-junctions"
+        );
+        let healed = heal_t_junctions(&raw, PLANE_EPSILON);
+        assert_eq!(open_edge_count(&healed), 0, "healing left open edges");
+        // Healing only splits triangles: geometry (and volume) is unchanged.
+        assert!((healed.volume() - raw.volume()).abs() < 1e-12);
+        assert!(healed.triangle_count() >= raw.triangle_count());
+        // The public op does this for us.
+        assert_eq!(open_edge_count(&bsp_subtract(&block, &tool)), 0);
+    }
+
+    #[test]
+    fn healing_is_a_no_op_on_a_manifold_mesh() {
+        let cube = unit_cube(0.0);
+        let healed = heal_t_junctions(&cube, PLANE_EPSILON);
+        assert_eq!(healed.faces, cube.faces);
+        assert_eq!(healed.vertices, cube.vertices);
     }
 }
