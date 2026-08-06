@@ -33,3 +33,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Kilo internal planning artifacts
+.kilo/
