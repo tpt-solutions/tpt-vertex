@@ -12,7 +12,7 @@ description = "WebGPU (wgpu) rendering engine for TPT Vertex, consuming kernel g
 tpt-vertex-kernel = { path = "../tpt-vertex-kernel" }
 wgpu = { version = "0.20", features = ["wgsl"] }
 bytemuck = { version = "1.14", features = ["derive"] }
-thiserror = "1.0"
+thiserror = "2.0"
 glam = "0.28"
 wasm-bindgen = { version = "0.2", optional = true }
 js-sys = { version = "0.3", optional = true }
