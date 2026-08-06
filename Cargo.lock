@@ -3376,7 +3376,7 @@ dependencies = [
  "bytemuck",
  "glam",
  "js-sys",
- "thiserror 1.0.69",
+ "thiserror 2.0.19",
  "tpt-vertex-kernel",
  "wasm-bindgen",
  "web-sys",
