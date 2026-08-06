@@ -17,7 +17,7 @@ tpt-vertex-kernel = { path = "../tpt-vertex-kernel", version = "0.1.0" }
 # Sparse direct solver — optional because it pulls in rayon/crossbeam which
 # are incompatible with wasm32-unknown-unknown. The dense LU solver in
 # solve.rs is always available and is the default for WASM builds.
-faer = { version = "0.22", optional = true }
+faer = { version = "0.24", optional = true }
 
 [features]
 default = ["faer"]
