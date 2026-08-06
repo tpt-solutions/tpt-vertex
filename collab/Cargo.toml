@@ -25,7 +25,7 @@ tokio = { version = "1", features = [
     "net",
     "sync",
 ], optional = true }
-tokio-tungstenite = { version = "0.24", features = ["native-tls"], optional = true }
+tokio-tungstenite = { version = "0.30", features = ["native-tls"], optional = true }
 futures-util = { version = "0.3", optional = true }
 anyhow = { version = "1", optional = true }
 
