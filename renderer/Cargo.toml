@@ -13,7 +13,7 @@ tpt-vertex-kernel = { path = "../tpt-vertex-kernel" }
 wgpu = { version = "0.20", features = ["wgsl"] }
 bytemuck = { version = "1.14", features = ["derive"] }
 thiserror = "1.0"
-glam = "0.28"
+glam = "0.33"
 wasm-bindgen = { version = "0.2", optional = true }
 js-sys = { version = "0.3", optional = true }
 web-sys = { version = "0.3", features = ["Window", "HtmlCanvasElement"], optional = true }
