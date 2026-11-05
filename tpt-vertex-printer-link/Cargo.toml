@@ -22,7 +22,7 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 keyring = "4"
 # mDNS/zeroconf printer auto-discovery. Pure-Rust, thread-based (no async
 # runtime required), matching this crate's synchronous/blocking style.
-mdns-sd = "0.20"
+mdns-sd = "0.21"
 
 [features]
 # Pull in a rustls TLS backend so the client can talk to HTTPS printer fronts.
